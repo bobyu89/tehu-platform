@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+/* ---- 設計 token（沿用規劃書視覺系統：深青綠主色＋警報語意色）---- */
+:root {
+  --c-bg: #f5f7f6;
+  --c-surface: #ffffff;
+  --c-ink: #1c2b2a;
+  --c-muted: #5a6b69;
+  --c-line: #dde4e1;
+  --c-accent: #0e6e66;
+  --c-accent-ink: #0a544e;
+  --c-accent-soft: #eaf1ef;
+  --c-yellow-bg: #fcf3e3;
+  --c-yellow: #8a5a12;
+  --c-yellow-line: #e8cf9f;
+  --c-red-bg: #faecea;
+  --c-red: #96302a;
+  --c-red-line: #e8c4bf;
+  --c-red-solid: #b3362b;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-bg: #101816;
+    --c-surface: #182220;
+    --c-ink: #e5ecea;
+    --c-muted: #93a5a2;
+    --c-line: #2a3835;
+    --c-accent: #4fb3a8;
+    --c-accent-ink: #7ccfc5;
+    --c-accent-soft: #1f2c29;
+    --c-yellow-bg: #2a2318;
+    --c-yellow: #d9a03f;
+    --c-yellow-line: #4a3d22;
+    --c-red-bg: #2c1b19;
+    --c-red: #e0695c;
+    --c-red-line: #4e2b27;
+    --c-red-solid: #d05a4e;
+  }
+}
+
+body {
+  background: var(--c-bg);
+  color: var(--c-ink);
+  font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- 元件類（床邊 UX：可點目標 ≥48px、高對比）---- */
+.card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-line);
+  border-radius: 10px;
+}
+.btn-primary {
+  display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+  min-height: 48px; padding: 0 1.1rem; border-radius: 10px;
+  background: var(--c-accent); color: #fff; font-weight: 700; font-size: 1rem;
+  border: none; cursor: pointer; user-select: none;
+}
+.btn-primary:active { opacity: .85; }
+.btn-primary:disabled { opacity: .45; }
+.btn-ghost {
+  display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+  min-height: 48px; padding: 0 1.1rem; border-radius: 10px;
+  background: transparent; color: var(--c-accent-ink);
+  border: 1px solid var(--c-line); font-weight: 700; font-size: 1rem; cursor: pointer; user-select: none;
+}
+.btn-danger {
+  display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+  min-height: 48px; padding: 0 1.1rem; border-radius: 10px;
+  background: var(--c-red-solid); color: #fff; font-weight: 800; font-size: 1rem;
+  border: none; cursor: pointer; user-select: none;
+}
+.field-label { font-size: .85rem; font-weight: 700; color: var(--c-muted); }
+.field-input {
+  width: 100%; min-height: 56px; padding: .4rem .8rem;
+  border: 1.5px solid var(--c-line); border-radius: 10px;
+  background: var(--c-surface); color: var(--c-ink);
+  font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.field-input:focus { outline: 2px solid var(--c-accent); outline-offset: 1px; border-color: var(--c-accent); }
+.chip {
+  display: inline-flex; align-items: center; gap: .25rem;
+  font-size: .78rem; font-weight: 700; padding: .15rem .6rem; border-radius: 999px;
+  border: 1px solid var(--c-line); color: var(--c-muted); background: var(--c-surface);
+}
+.chip-accent { border-color: var(--c-accent); color: var(--c-accent-ink); background: var(--c-accent-soft); }
+.chip-yellow { background: var(--c-yellow-bg); color: var(--c-yellow); border-color: var(--c-yellow-line); }
+.chip-red { background: var(--c-red-bg); color: var(--c-red); border-color: var(--c-red-line); }
+.seg-btn {
+  min-height: 48px; padding: 0 .9rem; border-radius: 10px; font-weight: 700; font-size: .95rem;
+  border: 1.5px solid var(--c-line); background: var(--c-surface); color: var(--c-ink); cursor: pointer;
+}
+.seg-btn[data-on="true"] { border-color: var(--c-accent); background: var(--c-accent-soft); color: var(--c-accent-ink); }
+.mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
