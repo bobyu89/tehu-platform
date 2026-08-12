@@ -1,9 +1,12 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
-/** IndexedDB 僅存在於瀏覽器：以 mounted gate 避免 SSR 預渲染觸碰 Dexie */
+const noopSubscribe = () => () => {};
+
+/**
+ * IndexedDB 僅存在於瀏覽器：以此 gate 避免 SSR 預渲染觸碰 Dexie。
+ * 用 useSyncExternalStore 而非 useEffect + setState，免除串聯重繪。
+ */
 export function useMounted(): boolean {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  return mounted;
+  return useSyncExternalStore(noopSubscribe, () => true, () => false);
 }

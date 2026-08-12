@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
+import { CaretRight, MapPin, Warning, Clock, SignOut } from "@phosphor-icons/react";
 import { getDb } from "@/lib/db";
 import { ensureSeeded, resetDemo } from "@/lib/seed";
 import { useMounted } from "@/components/useMounted";
@@ -10,8 +11,19 @@ import type { Shift } from "@/lib/types";
 
 export default function TodayPage() {
   const mounted = useMounted();
-  if (!mounted) return null;
+  if (!mounted) return <TodaySkeleton />;
   return <TodayContent />;
+}
+
+function TodaySkeleton() {
+  return (
+    <main className="mx-auto max-w-md px-4 py-5 flex flex-col gap-4">
+      <div className="skeleton h-4 w-28" />
+      <div className="skeleton h-8 w-48" />
+      <div className="skeleton h-32 w-full" style={{ borderRadius: "var(--r)" }} />
+      <div className="skeleton h-40 w-full" style={{ borderRadius: "var(--r)" }} />
+    </main>
+  );
 }
 
 function TodayContent() {
@@ -43,79 +55,103 @@ function TodayContent() {
     await db.shifts.update(s.id, { status: "completed", clockOutAt: new Date().toISOString() });
   }
 
+  const hhmm = (iso: string) =>
+    new Date(iso).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false });
+
   return (
     <main className="mx-auto max-w-md px-4 py-5 flex flex-col gap-4 pb-28">
       <header>
-        <div className="text-sm font-bold" style={{ color: "var(--c-muted)" }}>{dateStr}</div>
-        <h1 className="text-2xl font-black">{greet}，陳護理師</h1>
+        <div className="t-micro">{dateStr}</div>
+        <h1 className="t-hero mt-0.5">{greet}，陳護理師</h1>
       </header>
 
       {(openAlerts ?? 0) > 0 && (
-        <Link href="/admin" className="card p-3 flex items-center justify-between"
-              style={{ background: "var(--c-yellow-bg)", borderColor: "var(--c-yellow-line)" }}>
-          <span className="font-bold text-sm" style={{ color: "var(--c-yellow)" }}>⚠ 有 {openAlerts} 件未認領警報</span>
-          <span className="text-xs font-bold" style={{ color: "var(--c-yellow)" }}>管理端 →</span>
+        <Link href="/admin" className="sheet stripe stripe-caution flex items-center gap-3 px-3.5 py-3">
+          <Warning size={20} weight="fill" color="var(--caution)" />
+          <span className="t-label flex-1" style={{ color: "var(--caution)" }}>
+            {openAlerts} 件警報未認領
+          </span>
+          <CaretRight size={16} color="var(--caution)" />
         </Link>
       )}
 
-      <section className="flex flex-col gap-2.5">
-        <h2 className="text-sm font-black" style={{ color: "var(--c-muted)" }}>今日班次</h2>
+      <section className="sheet">
+        <div className="sheet-title">
+          <span className="t-micro">今日班次</span>
+          <span className="t-micro num">12 小時制</span>
+        </div>
+        {(shifts ?? []).length === 0 && <div className="empty">今日尚未排班</div>}
         {(shifts ?? []).map((s) => (
-          <div key={s.id} className="card p-4 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-black text-lg">{caseName(s.caseId)}</div>
-                <div className="text-sm mono" style={{ color: "var(--c-muted)" }}>
-                  {String(s.startHH).padStart(2, "0")}:00–{String(s.endHH).padStart(2, "0")}:00（12 小時班）
+          <div key={s.id} className="px-3.5 py-3 flex flex-col gap-2.5"
+               style={{ borderBottom: "1px solid var(--hairline)" }}>
+            <div className="flex items-center gap-2.5">
+              <div className="flex-1 min-w-0">
+                <div className="t-row truncate">{caseName(s.caseId)}</div>
+                <div className="t-sub num flex items-center gap-1.5">
+                  <Clock size={13} />
+                  {String(s.startHH).padStart(2, "0")}:00-{String(s.endHH).padStart(2, "0")}:00
                 </div>
               </div>
-              {s.status === "accepted" && <span className="chip">已接班</span>}
-              {s.status === "in_progress" && <span className="chip chip-accent">服務中</span>}
-              {s.status === "completed" && <span className="chip">已完成</span>}
+              {s.status === "accepted" && <span className="tag">已接班</span>}
+              {s.status === "in_progress" && <span className="tag tag-accent">服務中</span>}
+              {s.status === "completed" && <span className="tag">已完成</span>}
             </div>
+
             <div className="flex gap-2">
               {s.status === "accepted" && (
-                <button className="btn-primary flex-1" onClick={() => clockIn(s)}>📍 GPS 打卡上班</button>
+                <button className="btn btn-primary flex-1" onClick={() => clockIn(s)}>
+                  <MapPin size={18} weight="fill" /> 定位打卡上班
+                </button>
               )}
               {s.status === "in_progress" && (
                 <>
-                  <Link href={`/case/${s.caseId}`} className="btn-primary flex-1">進入個案 →</Link>
-                  <button className="btn-ghost" onClick={() => clockOut(s)}>下班打卡</button>
+                  <Link href={`/case/${s.caseId}`} className="btn btn-primary flex-1">進入照護紀錄</Link>
+                  <button className="btn btn-quiet" onClick={() => clockOut(s)} aria-label="下班打卡">
+                    <SignOut size={18} />
+                  </button>
                 </>
               )}
               {s.status === "completed" && (
-                <Link href={`/case/${s.caseId}/handoff`} className="btn-ghost flex-1">填寫交班 →</Link>
+                <Link href={`/case/${s.caseId}/handoff`} className="btn btn-quiet flex-1">填寫交班</Link>
               )}
             </div>
+
             {s.clockInAt && (
-              <div className="text-[11px] mono" style={{ color: "var(--c-muted)" }}>
-                上班 {new Date(s.clockInAt).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}
-                {s.clockInGeo ? `・GPS ±${Math.round(s.clockInGeo.acc)}m` : "・無定位（已標記異常，進主管審核）"}
-                {s.clockOutAt && `｜下班 ${new Date(s.clockOutAt).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}`}
+              <div className="t-micro num" style={{ letterSpacing: 0 }}>
+                上班 {hhmm(s.clockInAt)}
+                {s.clockInGeo
+                  ? `　定位誤差 ${Math.round(s.clockInGeo.acc)}m`
+                  : "　無定位訊號，已標記異常待主管審核"}
+                {s.clockOutAt && `　下班 ${hhmm(s.clockOutAt)}`}
               </div>
             )}
           </div>
         ))}
       </section>
 
-      <section className="flex flex-col gap-2.5">
-        <h2 className="text-sm font-black" style={{ color: "var(--c-muted)" }}>我的個案</h2>
+      <section className="sheet">
+        <div className="sheet-title"><span className="t-micro">我的個案</span></div>
         {(cases ?? []).map((c) => (
-          <Link key={c.id} href={`/case/${c.id}`} className="card p-4 flex items-center justify-between">
-            <div>
-              <div className="font-black">{c.name} <span className="text-xs font-bold" style={{ color: "var(--c-muted)" }}>{c.age} 歲</span></div>
-              <div className="text-xs mt-0.5" style={{ color: "var(--c-muted)" }}>{c.dx}</div>
-              <div className="mt-1.5 flex gap-1.5">{c.careNeeds.map((n) => <span key={n} className="chip">{n}</span>)}</div>
+          <Link key={c.id} href={`/case/${c.id}`} className="row stripe stripe-ok">
+            <div className="flex-1 min-w-0">
+              <div className="t-row">
+                {c.name}
+                <span className="t-sub font-normal">　{c.age} 歲・{c.setting}</span>
+              </div>
+              <div className="t-sub truncate">{c.dx}</div>
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {c.careNeeds.map((n) => <span key={n} className="tag">{n}</span>)}
+              </div>
             </div>
-            <span className="chip">{c.setting}</span>
+            <CaretRight size={16} color="var(--ink-3)" />
           </Link>
         ))}
       </section>
 
-      <footer className="mt-4 text-center">
-        <Link href="/admin" className="text-xs font-bold" style={{ color: "var(--c-accent-ink)" }}>管理端儀表板（示意）→</Link>
-        <p className="mt-2 text-[11px] leading-5" style={{ color: "var(--c-muted)" }}>
-          開發版・資料僅存於本機（離線優先）・
+      <footer className="flex flex-col items-center gap-2 pt-1">
+        <Link href="/admin" className="t-label" style={{ color: "var(--a-ink)" }}>管理端儀表板</Link>
+        <p className="t-micro" style={{ letterSpacing: 0, fontWeight: 400 }}>
+          開發版．資料僅存於本機（離線優先）．
           <button className="underline" onClick={() => void resetDemo()}>重置示範資料</button>
         </p>
       </footer>

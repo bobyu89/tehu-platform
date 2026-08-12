@@ -35,7 +35,7 @@ const CASE_LEE: CaseInfo = {
   careNeeds: ["氧療照護", "抽痰"],
   tubes: ["尿管（8/2 置入，8/30 到期）"],
   overrides: { spo2: { yellowLow: 87, redLow: 85 } },
-  overrideNote: "COPD 個案：SpO2 目標 88–92%（護理長 8/5 依醫囑調整）",
+  overrideNote: "COPD 個案：SpO2 目標 88-92%（護理長 8/5 依醫囑調整）",
 };
 
 function isoAt(daysAgo: number, hh: number, mm = 0): string {
@@ -71,7 +71,7 @@ function genHistory(): Observation[] {
       out.push(obs("case-wang", "rr", "vital", { main: Math.round(15 + rnd() * 4) }, t));
       out.push(obs("case-wang", "bp", "vital", { main: Math.round(138 + rnd() * 22), dbp: Math.round(72 + rnd() * 12), posture: "臥" }, t));
       out.push(obs("case-wang", "spo2", "vital", { main: Math.round(96 + rnd() * 3), onO2: false }, t));
-      // 李爺爺：COPD——SpO2 平時 89–93，最後兩天緩慢下滑（展示 C 層「偏離平時水準」）
+      // 李爺爺 COPD：SpO2 平時 89-93，最後兩天緩慢下滑（展示 C 層「偏離平時水準」）
       const drift = day <= 2 ? (2 - day) * 0.8 + 0.6 : 0;
       out.push(obs("case-lee", "bt", "vital", { main: +(36.3 + rnd() * 0.5).toFixed(1), site: "耳" }, t));
       out.push(obs("case-lee", "hr", "vital", { main: Math.round(84 + rnd() * 16), rhythm: "不規則" }, t));
