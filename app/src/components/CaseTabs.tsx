@@ -41,6 +41,7 @@ export function CaseHeader({ caseId }: { caseId: string }) {
   const base = `/case/${caseId}`;
   const tabs = [
     { href: base, label: "量測" },
+    { href: `${base}/care`, label: "照護" },
     { href: `${base}/trends`, label: "趨勢" },
     { href: `${base}/handoff`, label: "交班" },
   ];

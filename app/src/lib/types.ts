@@ -63,6 +63,20 @@ export interface CaseInfo {
   tubes: string[];     // 管路清單（demo 簡化）
   overrides?: RuleSet; // 個案警報覆寫（如 COPD SpO2）
   overrideNote?: string;
+  news2Scale2?: boolean;    // COPD 等高碳酸血症風險個案改用 SpO2 Scale 2
+  news2AlertsOff?: boolean; // B 層警報停用（慢性穩定個案；計分仍保留供排序）
+}
+
+export type CareEventType =
+  | "reposition" | "suction" | "tube_check" | "tube_event" | "red_flag" | "other";
+
+export interface CareEvent {
+  id: string;
+  caseId: string;
+  type: CareEventType;
+  label: string;               // 顯示文字，如「翻身：左側臥」「管路事件：自拔」
+  detail?: Record<string, unknown>;
+  occurredAt: string;          // ISO
 }
 
 export interface Shift {

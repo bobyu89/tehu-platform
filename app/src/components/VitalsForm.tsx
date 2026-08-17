@@ -5,6 +5,7 @@ import { Check, Warning, WarningOctagon, Phone, TrendUp, TrendDown } from "@phos
 import { getDb, uid } from "@/lib/db";
 import type { AlertRow, CaseInfo, Observation, ObsType } from "@/lib/types";
 import { evaluateObs, computeBaseline, baselineFlag, type BaselineFlag } from "@/lib/alert-engine";
+import { computeNews2, type News2Result } from "@/lib/news2";
 import { fmtDateTime } from "@/lib/digest";
 
 // 量測輸入（規格 02 冊 §4）：三秒原則、大鍵位、自動跳欄、
@@ -29,7 +30,10 @@ const AVPU = [
   { code: "P", label: "對疼痛有反應" }, { code: "U", label: "無反應" },
 ];
 
-interface Result { reds: AlertRow[]; yellows: AlertRow[]; hints: BaselineFlag[]; savedCount: number }
+interface Result {
+  reds: AlertRow[]; yellows: AlertRow[]; hints: BaselineFlag[]; savedCount: number;
+  news2: News2Result | null; news2AlertsOff: boolean;
+}
 
 export function VitalsForm({ info }: { info: CaseInfo }) {
   const caseId = info.id;
@@ -87,7 +91,8 @@ export function VitalsForm({ info }: { info: CaseInfo }) {
     if (num("hr") != null) entries.push({ type: "hr", value: { main: num("hr"), rhythm: "規則" } });
     if (num("rr") != null) entries.push({ type: "rr", value: { main: num("rr") } });
     if (num("sbp") != null) entries.push({ type: "bp", value: { main: num("sbp"), dbp: num("dbp") } });
-    if (num("spo2") != null) entries.push({ type: "spo2", value: { main: num("spo2") } });
+    // 用氧狀態自動從最近一筆氧療紀錄帶入，不重複輸入（規格 02 冊）
+    if (num("spo2") != null) entries.push({ type: "spo2", value: { main: num("spo2"), onO2: Boolean(lastByType?.spo2?.value.onO2) } });
     if (num("glucose") != null) entries.push({ type: "glucose", value: { main: num("glucose") } });
     if (pain != null) entries.push({ type: "pain", value: { main: pain } });
     entries.push({ type: "consciousness", value: { main: null, avpu: AVPU[avpu].code, newConfusion: confusion } });
@@ -128,6 +133,27 @@ export function VitalsForm({ info }: { info: CaseInfo }) {
       }
     }
 
+    // B 層：NEWS2（規格 02 冊 §2.2）。近 12 小時參數＋本次輸入合併計分。
+    const twelveHoursAgo = new Date(Date.now() - 12 * 3600_000).toISOString();
+    const recent = await db.observations.where("caseId").equals(caseId)
+      .filter((o) => o.measuredAt >= twelveHoursAgo).toArray();
+    const news2 = computeNews2(info, [...recent, ...obsRows]);
+    if (!info.news2AlertsOff && news2.complete) {
+      if (news2.total >= 7) {
+        alertRows.push({
+          id: uid(), caseId, layer: "B", level: "red",
+          summary: `NEWS2 總分 ${news2.total} 分（≥7，建議緊急評估）`,
+          status: "triggered", triggeredAt: now,
+        });
+      } else if (news2.total >= 5 || news2.singleThree) {
+        alertRows.push({
+          id: uid(), caseId, layer: "B", level: "yellow",
+          summary: `NEWS2 總分 ${news2.total} 分${news2.singleThree ? "（含單項 3 分）" : ""}，建議提高觀察頻率`,
+          status: "triggered", triggeredAt: now,
+        });
+      }
+    }
+
     await db.transaction("rw", [db.observations, db.alerts], async () => {
       await db.observations.bulkPut(obsRows);
       if (alertRows.length > 0) await db.alerts.bulkPut(alertRows);
@@ -137,6 +163,7 @@ export function VitalsForm({ info }: { info: CaseInfo }) {
       reds: alertRows.filter((a) => a.level === "red"),
       yellows: alertRows.filter((a) => a.level === "yellow"),
       hints, savedCount: obsRows.length,
+      news2, news2AlertsOff: Boolean(info.news2AlertsOff),
     });
     setVals({ bt: "", hr: "", rr: "", sbp: "", dbp: "", spo2: "", glucose: "" });
     setPain(null); setAvpu(0); setConfusion(false);
@@ -232,6 +259,18 @@ export function VitalsForm({ info }: { info: CaseInfo }) {
 
 const ACTIONS = ["已觀察複測", "已聯絡家屬", "已聯絡醫師", "已送醫"];
 
+function News2Row({ n, off }: { n: News2Result; off: boolean }) {
+  return (
+    <div className="row" style={{ borderTop: "1px solid var(--hairline)" }}>
+      <span className="t-sub flex-1">早期預警 NEWS2</span>
+      <span className="t-label num">
+        {n.complete ? `${n.total} 分・${n.bandLabel}` : `資料不全（缺${n.missing.join("、")}）`}
+      </span>
+      {off && <span className="tag">警報停用</span>}
+    </div>
+  );
+}
+
 function ResultOverlay({ r, onClose }: { r: Result; onClose: () => void }) {
   const [note, setNote] = useState<string | null>(null);
 
@@ -318,6 +357,7 @@ function ResultOverlay({ r, onClose }: { r: Result; onClose: () => void }) {
               </div>
             ))}
             <div className="px-3.5 py-2.5 t-sub">建議 15 至 30 分鐘後複測並持續觀察，已列入管理端佇列。</div>
+            {r.news2 && <News2Row n={r.news2} off={r.news2AlertsOff} />}
             <div className="p-2.5 grid grid-cols-3 gap-1.5" style={{ borderTop: "1px solid var(--hairline)" }}>
               {ACTIONS.slice(0, 3).map((n) => (
                 <button key={n} className="opt" style={{ fontSize: 13 }} data-on={note === n} onClick={() => setNote(n)}>{n}</button>
@@ -341,6 +381,7 @@ function ResultOverlay({ r, onClose }: { r: Result; onClose: () => void }) {
                 <span className="t-sub">{h.text}</span>
               </div>
             ))}
+            {r.news2 && <News2Row n={r.news2} off={r.news2AlertsOff} />}
             <div className="p-2.5" style={{ borderTop: "1px solid var(--hairline)" }}>
               <button className="btn btn-primary w-full" onClick={onClose}>完成</button>
             </div>

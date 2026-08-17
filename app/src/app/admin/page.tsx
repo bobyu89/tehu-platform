@@ -8,6 +8,7 @@ import { ensureSeeded } from "@/lib/seed";
 import { useMounted } from "@/components/useMounted";
 import type { AlertRow, ObsType } from "@/lib/types";
 import { OBS_LABEL, OBS_UNIT } from "@/lib/types";
+import { computeNews2, type News2Result } from "@/lib/news2";
 import { fmtDateTime } from "@/lib/digest";
 
 // 管理端儀表板（示意）。正式版為獨立後台：
@@ -42,6 +43,21 @@ function AdminContent() {
     return out;
   }, []);
 
+  // B 層 NEWS2：跨個案排序指標（規格 02 冊 §2.2 的核心價值）
+  const news2ByCase = useLiveQuery(async () => {
+    const out: Record<string, News2Result> = {};
+    const since = new Date(Date.now() - 12 * 3600_000).toISOString();
+    for (const c of await db.cases.toArray()) {
+      const obs = await db.observations.where("caseId").equals(c.id)
+        .filter((o) => o.measuredAt >= since).toArray();
+      out[c.id] = computeNews2(c, obs);
+    }
+    return out;
+  }, []);
+
+  const sortedCases = [...(cases ?? [])].sort((a, b) =>
+    (news2ByCase?.[b.id]?.total ?? -1) - (news2ByCase?.[a.id]?.total ?? -1));
+
   const claim = (a: AlertRow) => db.alerts.update(a.id, { status: "claimed", claimedAt: new Date().toISOString() });
   const close = (a: AlertRow) => db.alerts.update(a.id, { status: "closed" });
   const nameOf = (id: string) => cases?.find((c) => c.id === id)?.name ?? "";
@@ -66,16 +82,26 @@ function AdminContent() {
       </header>
 
       <section className="grid gap-3 sm:grid-cols-2">
-        {(cases ?? []).map((c) => (
+        {sortedCases.map((c) => {
+          const n = news2ByCase?.[c.id];
+          return (
           <div key={c.id} className="sheet">
             <div className="sheet-title">
               <span className="t-label">
                 {c.name}
                 <span className="t-micro" style={{ fontWeight: 400, letterSpacing: 0 }}>　{c.age} 歲・{c.setting}</span>
               </span>
-              <Link href={`/case/${c.id}/trends`} className="t-micro flex items-center" style={{ color: "var(--a-ink)" }}>
-                趨勢 <CaretRight size={12} />
-              </Link>
+              <span className="flex items-center gap-1.5">
+                {n && (
+                  <span className={`tag num ${n.complete && n.band === "high" ? "tag-critical" : n.complete && n.band === "medium" ? "tag-caution" : ""}`}
+                        title={c.news2AlertsOff ? "B 層警報停用，計分保留供排序" : undefined}>
+                    NEWS2 {n.complete ? `${n.total}・${n.bandLabel}` : "資料不全"}
+                  </span>
+                )}
+                <Link href={`/case/${c.id}/trends`} className="t-micro flex items-center" style={{ color: "var(--a-ink)" }}>
+                  趨勢 <CaretRight size={12} />
+                </Link>
+              </span>
             </div>
             <div className="grid grid-cols-4 gap-px" style={{ background: "var(--hairline)" }}>
               {SNAPSHOT.map((t) => (
@@ -89,7 +115,8 @@ function AdminContent() {
               ))}
             </div>
           </div>
-        ))}
+          );
+        })}
       </section>
 
       <section className="sheet">
@@ -115,7 +142,7 @@ function AdminContent() {
                 　{a.summary}
               </div>
               <div className="t-micro num" style={{ letterSpacing: 0, fontWeight: 400 }}>
-                {a.layer === "C" ? "個人基準線" : a.layer === "qualitative" ? "質性紅旗" : "絕對臨界值"}
+                {a.layer === "C" ? "個人基準線" : a.layer === "B" ? "早期預警" : a.layer === "qualitative" ? "質性紅旗" : "絕對臨界值"}
                 　{fmtDateTime(a.triggeredAt)}
                 {a.claimedAt && `　已認領 ${fmtDateTime(a.claimedAt)}`}
                 {a.handledNote && `　${a.handledNote}`}
