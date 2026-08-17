@@ -35,6 +35,17 @@ export default function HandoffPage() {
     return buildDigest(obs, alerts);
   }, [caseId]);
 
+  // 給藥完成率（03 冊 A 段自動彙整項目）
+  const medRate = useLiveQuery(async () => {
+    const db = getDb();
+    const d = new Date();
+    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const meds = await db.meds.where("caseId").equals(caseId).toArray();
+    const due = meds.flatMap((m) => m.slots.filter((s) => s <= d.getHours())).length;
+    const logs = (await db.medLogs.where("caseId").equals(caseId).toArray()).filter((l) => l.date === date);
+    return { due, given: logs.filter((l) => l.status === "given").length, withheld: logs.filter((l) => l.status === "withheld").length };
+  }, [caseId]);
+
   const toggleS = (opt: string) =>
     setSIssues((cur) => cur.includes(opt) ? cur.filter((x) => x !== opt) : [...cur, opt]);
 
@@ -46,7 +57,11 @@ export default function HandoffPage() {
 
   function genSummary() {
     if (!digest || !info) return;
-    setSummary(draftSummary(digest, sIssues, aNote));
+    let s = draftSummary(digest, sIssues, aNote);
+    if (medRate && medRate.due > 0) {
+      s += `\n給藥：${medRate.given} / ${medRate.due} 已給${medRate.withheld > 0 ? `，未給 ${medRate.withheld} 次（原因見紀錄）` : ""}。`;
+    }
+    setSummary(s);
   }
 
   async function submit() {
@@ -132,6 +147,13 @@ export default function HandoffPage() {
         )}
 
         <div className="row" style={{ borderTop: "1px solid var(--hairline)" }}>
+          <span className="t-label flex-1">給藥（截至目前）</span>
+          <span className="num t-label">
+            {medRate ? `${medRate.given} / ${medRate.due} 已給${medRate.withheld > 0 ? `，未給 ${medRate.withheld}` : ""}` : "…"}
+          </span>
+        </div>
+
+        <div className="row">
           <span className="t-label flex-1">攝入與排出</span>
           <span className="num t-label">
             入 {digest?.ioIn ?? 0}

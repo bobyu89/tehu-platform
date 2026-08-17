@@ -173,8 +173,26 @@ export function VitalsForm({ info }: { info: CaseInfo }) {
   const filled = Object.values(vals).filter((v) => v.trim() !== "").length;
   const anyInput = filled > 0 || pain != null || avpu !== 0 || confusion;
 
+  // 量測排程逾時提醒（規格 02 冊 §2.4）：「沒量」本身就是異常訊號
+  const overdueMin = useLiveQuery(async () => {
+    if (!info.vitalsIntervalH) return 0;
+    const rows = await getDb().observations.where("caseId").equals(caseId)
+      .filter((o) => ["bt", "hr", "rr", "bp", "spo2"].includes(o.type)).toArray();
+    if (rows.length === 0) return 0;
+    const last = rows.reduce((a, r) => (r.measuredAt > a ? r.measuredAt : a), rows[0].measuredAt);
+    return Math.round((Date.now() - new Date(last).getTime()) / 60000) - info.vitalsIntervalH * 60;
+  }, [caseId, info.vitalsIntervalH]) ?? 0;
+
   return (
     <div className="flex flex-col gap-3 pb-32">
+      {overdueMin > 30 && (
+        <div className="sheet stripe stripe-caution flex items-center gap-2.5 px-3.5 py-2.5">
+          <Warning size={17} weight="fill" color="var(--caution)" className="shrink-0" />
+          <span className="t-label" style={{ color: "var(--caution)" }}>
+            生命徵象已逾排程 <span className="num">{overdueMin}</span> 分（Q{info.vitalsIntervalH}H）
+          </span>
+        </div>
+      )}
       <section className="sheet">
         <div className="sheet-title">
           <span className="t-micro">生命徵象</span>

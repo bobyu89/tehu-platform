@@ -65,6 +65,8 @@ export interface CaseInfo {
   overrideNote?: string;
   news2Scale2?: boolean;    // COPD 等高碳酸血症風險個案改用 SpO2 Scale 2
   news2AlertsOff?: boolean; // B 層警報停用（慢性穩定個案；計分仍保留供排序）
+  status?: CaseStatus;      // 個案狀態機（04 冊）；未填視為 active
+  vitalsIntervalH?: number; // 生命徵象量測排程（如 Q4H＝4）；逾 30 分未量提醒
 }
 
 export type CareEventType =
@@ -79,16 +81,54 @@ export interface CareEvent {
   occurredAt: string;          // ISO
 }
 
+export type ShiftStatus =
+  | "unassigned" | "offered" | "accepted" | "in_progress" | "completed";
+
 export interface Shift {
   id: string;
   caseId: string;
   date: string;      // YYYY-MM-DD
   startHH: number;
   endHH: number;
-  status: "accepted" | "in_progress" | "completed";
+  status: ShiftStatus;
+  nurseId?: string;
+  offeredAt?: string;
+  respondBy?: string;  // 30 分鐘回覆期限（04 冊）
   clockInAt?: string;
   clockInGeo?: { lat: number; lng: number; acc: number } | null;
   clockOutAt?: string;
+}
+
+export type CaseStatus = "inquiry" | "assessing" | "quoted" | "active" | "paused" | "closed";
+
+export const CASE_STATUS_LABEL: Record<CaseStatus, string> = {
+  inquiry: "洽詢", assessing: "評估中", quoted: "報價", active: "服務中", paused: "暫停", closed: "結案",
+};
+
+export interface Nurse {
+  id: string;
+  name: string;
+  tags: string[];   // 技術標籤（派單硬條件：需求 ⊆ 標籤）
+}
+
+export interface Med {
+  id: string;
+  caseId: string;
+  name: string;     // 品名＋劑量
+  route: string;    // 口服／吸入／外用…
+  slots: number[];  // 每日給藥時段（時）
+  note?: string;
+}
+
+export interface MedLog {
+  id: string;       // 決定性：`${medId}|${date}|${slot}`，天然冪等
+  caseId: string;
+  medId: string;
+  date: string;
+  slot: number;
+  status: "given" | "withheld";
+  reason?: string;  // 未給必選：拒服/禁食/嘔吐/其他
+  at: string;
 }
 
 export interface Handoff {

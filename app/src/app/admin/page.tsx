@@ -76,9 +76,14 @@ function AdminContent() {
             10 分鐘語音輪撥，全程留存通知紀錄。
           </p>
         </div>
-        <Link href="/today" className="t-label flex items-center gap-0.5 shrink-0" style={{ color: "var(--a-ink)" }}>
-          <CaretLeft size={15} /> 護理師端
-        </Link>
+        <span className="flex flex-col items-end gap-1 shrink-0">
+          <Link href="/today" className="t-label flex items-center gap-0.5" style={{ color: "var(--a-ink)" }}>
+            <CaretLeft size={15} /> 護理師端
+          </Link>
+          <Link href="/admin/dispatch" className="t-label flex items-center gap-0.5" style={{ color: "var(--a-ink)" }}>
+            個案與派單 <CaretRight size={15} />
+          </Link>
+        </span>
       </header>
 
       <section className="grid gap-3 sm:grid-cols-2">

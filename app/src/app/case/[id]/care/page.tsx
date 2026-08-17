@@ -4,8 +4,15 @@ import { useParams } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Check, Phone, WarningOctagon } from "@phosphor-icons/react";
 import { getDb, uid } from "@/lib/db";
-import type { CareEvent, Observation, ObsType } from "@/lib/types";
+import type { CareEvent, MedLog, Observation, ObsType } from "@/lib/types";
 import { fmtTime } from "@/lib/digest";
+
+const WITHHOLD_REASONS = ["拒服", "禁食", "嘔吐", "其他"];
+
+function todayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 // 照護紀錄（規格 02 冊 §1.2、§1.3）：輸出入量、高頻事件一鍵鈕、
 // 管路勾檢與事件、質性紅旗（直通紅色警報，不經數值判斷）。
@@ -50,6 +57,32 @@ export default function CarePage() {
   const [flash, setFlash] = useState<string | null>(null);
   const [redFired, setRedFired] = useState<string | null>(null);
   const [confirmFlag, setConfirmFlag] = useState<string | null>(null);
+  const [withholdFor, setWithholdFor] = useState<{ medId: string; slot: number } | null>(null);
+
+  // 簡化 MAR（規格 02 冊 §1.3）：藥單勾選給藥，未給必選原因
+  const meds = useLiveQuery(() => db.meds.where("caseId").equals(caseId).toArray(), [caseId]);
+  const medLogs = useLiveQuery(async () => {
+    const rows = await db.medLogs.where("caseId").equals(caseId).toArray();
+    const map: Record<string, MedLog> = {};
+    for (const r of rows) map[r.id] = r;
+    return map;
+  }, [caseId]);
+
+  const nowHH = new Date().getHours();
+  const dueList = (meds ?? [])
+    .flatMap((m) => m.slots.map((slot) => ({ med: m, slot })))
+    .filter((x) => x.slot <= nowHH + 1)
+    .sort((a, b) => a.slot - b.slot);
+
+  async function logMed(medId: string, slot: number, status: MedLog["status"], reason?: string) {
+    const date = todayStr();
+    await db.medLogs.put({
+      id: `${medId}|${date}|${slot}`, caseId, medId, date, slot, status, reason,
+      at: new Date().toISOString(),
+    });
+    setWithholdFor(null);
+    toast(status === "given" ? "已記錄給藥" : `已記錄未給（${reason}）`);
+  }
 
   const todayIso = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString(); })();
 
@@ -139,6 +172,54 @@ export default function CarePage() {
 
   return (
     <div className="flex flex-col gap-3 pb-28">
+      {/* 今日給藥（簡化 MAR）。用語「協助服藥／依醫囑給藥」，不提供用藥建議（醫材紅線） */}
+      <section className="sheet">
+        <div className="sheet-title">
+          <span className="t-micro">今日給藥（依醫囑協助服藥）</span>
+          <span className="t-micro num">
+            {dueList.filter((x) => medLogs?.[`${x.med.id}|${todayStr()}|${x.slot}`]?.status === "given").length}
+            {" / "}{dueList.length} 已給
+          </span>
+        </div>
+        {dueList.length === 0 && <div className="empty">目前時段無到期藥單</div>}
+        {dueList.map(({ med, slot }) => {
+          const log = medLogs?.[`${med.id}|${todayStr()}|${slot}`];
+          const overdue = !log && slot < nowHH;
+          return (
+            <div key={`${med.id}-${slot}`} className={`row ${overdue ? "stripe stripe-caution" : ""}`}>
+              <span className="num t-label shrink-0" style={{ width: 48 }}>{String(slot).padStart(2, "0")}:00</span>
+              <div className="flex-1 min-w-0">
+                <div className="t-label truncate">{med.name}</div>
+                <div className="t-micro" style={{ fontWeight: 400, letterSpacing: 0 }}>
+                  {med.route}{med.note ? `・${med.note}` : ""}{overdue ? "・已逾時" : ""}
+                </div>
+              </div>
+              {log ? (
+                log.status === "given"
+                  ? <span className="tag tag-accent"><Check size={11} weight="bold" /> {fmtTime(log.at)} 已給</span>
+                  : <span className="tag tag-caution">未給・{log.reason}</span>
+              ) : (
+                <span className="flex gap-1.5">
+                  <button className="btn btn-primary" style={{ minHeight: 38, padding: "0 12px", fontSize: 13 }}
+                          onClick={() => logMed(med.id, slot, "given")}>給藥</button>
+                  <button className="btn btn-quiet" style={{ minHeight: 38, padding: "0 10px", fontSize: 13 }}
+                          onClick={() => setWithholdFor({ medId: med.id, slot })}>未給</button>
+                </span>
+              )}
+            </div>
+          );
+        })}
+        {withholdFor && (
+          <div className="p-2.5 flex items-center gap-1.5" style={{ borderTop: "1px solid var(--hairline)", background: "var(--sunken)" }}>
+            <span className="t-micro shrink-0">未給原因</span>
+            {WITHHOLD_REASONS.map((r) => (
+              <button key={r} className="opt flex-1" style={{ fontSize: 13, minHeight: 38 }}
+                      onClick={() => logMed(withholdFor.medId, withholdFor.slot, "withheld", r)}>{r}</button>
+            ))}
+          </div>
+        )}
+      </section>
+
       {/* 高頻事件一鍵鈕：先以預設值一鍵入帳 */}
       <section className="sheet">
         <div className="sheet-title"><span className="t-micro">快速紀錄</span></div>

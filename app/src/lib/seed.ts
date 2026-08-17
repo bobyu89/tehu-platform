@@ -1,5 +1,8 @@
 import { getDb, uid } from "./db";
-import type { CaseInfo, Observation, ObsType, Shift } from "./types";
+import type { CaseInfo, Med, Nurse, Observation, ObsType, Shift } from "./types";
+
+/** 目前登入的示範護理師 */
+export const SELF_ID = "nurse-chen";
 
 // 示範資料：兩個個案＋近 7 天量測史（供趨勢圖與 C 層基準線展示）。
 // 設計要點：
@@ -26,6 +29,8 @@ const CASE_WANG: CaseInfo = {
   allergies: "Penicillin",
   careNeeds: ["管灌", "血糖監測"],
   tubes: ["鼻胃管（7/28 置入，8/25 到期）"],
+  status: "active",
+  vitalsIntervalH: 4, // VS Q4H
 };
 
 const CASE_LEE: CaseInfo = {
@@ -42,7 +47,23 @@ const CASE_LEE: CaseInfo = {
   overrideNote: "COPD 個案：SpO2 目標 88-92%（護理長 8/5 依醫囑調整）",
   news2Scale2: true,     // 高碳酸血症風險：SpO2 改用 Scale 2 計分
   news2AlertsOff: true,  // 慢性穩定：B 層警報停用，計分保留供管理端排序
+  status: "active",
+  vitalsIntervalH: 4,
 };
+
+const NURSES: Nurse[] = [
+  { id: SELF_ID, name: "陳曉柔", tags: ["管灌", "血糖監測", "氧療照護", "抽痰"] },
+  { id: "nurse-lin", name: "林士弘", tags: ["氧療照護", "抽痰", "傷口照護"] },
+  { id: "nurse-chang", name: "張惠雯", tags: ["管灌", "失智照護"] },
+];
+
+const MEDS: Med[] = [
+  { id: "med-w1", caseId: "case-wang", name: "Metformin 500mg", route: "口服", slots: [8, 20], note: "隨餐" },
+  { id: "med-w2", caseId: "case-wang", name: "Amlodipine 5mg", route: "口服", slots: [8] },
+  { id: "med-w3", caseId: "case-wang", name: "Donepezil 5mg", route: "口服", slots: [21] },
+  { id: "med-l1", caseId: "case-lee", name: "Tiotropium 吸入劑", route: "吸入", slots: [8] },
+  { id: "med-l2", caseId: "case-lee", name: "Apixaban 2.5mg", route: "口服", slots: [8, 20] },
+];
 
 function dstr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -101,8 +122,10 @@ export async function ensureSeeded(): Promise<void> {
   const db = getDb();
   const today = dstr(new Date());
 
-  // 個案定義永遠 upsert：程式碼演進（如新增 news2 欄位）舊資料庫立即跟上
+  // 定義類資料永遠 upsert：程式碼演進（如新增欄位）舊資料庫立即跟上
   await db.cases.bulkPut([CASE_WANG, CASE_LEE]);
+  await db.nurses.bulkPut(NURSES);
+  await db.meds.bulkPut(MEDS);
 
   // 量測史：首次全量（近 7 天），之後每天補缺的日子。
   // 交易內重讀 seed_day 防多頁同時掛載的競態。
@@ -127,8 +150,8 @@ export async function ensureSeeded(): Promise<void> {
 
   // 今日班次：決定性 ID upsert（天然冪等，無競態），並清掉舊版隨機 ID 造成的重複
   const shifts: Shift[] = [
-    { id: `shift-case-wang-${today}`, caseId: "case-wang", date: today, startHH: 8, endHH: 20, status: "accepted" },
-    { id: `shift-case-lee-${today}`, caseId: "case-lee", date: today, startHH: 20, endHH: 8, status: "accepted" },
+    { id: `shift-case-wang-${today}`, caseId: "case-wang", date: today, startHH: 8, endHH: 20, status: "accepted", nurseId: SELF_ID },
+    { id: `shift-case-lee-${today}`, caseId: "case-lee", date: today, startHH: 20, endHH: 8, status: "accepted", nurseId: SELF_ID },
   ];
   const existing = await db.shifts.where("date").equals(today).toArray();
   const keep = new Set(shifts.map((s) => s.id));

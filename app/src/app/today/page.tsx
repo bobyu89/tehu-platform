@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { CaretRight, MapPin, Warning, Clock, SignOut } from "@phosphor-icons/react";
 import { getDb } from "@/lib/db";
-import { ensureSeeded, resetDemo } from "@/lib/seed";
+import { ensureSeeded, resetDemo, SELF_ID } from "@/lib/seed";
 import { useMounted } from "@/components/useMounted";
 import { SosButton } from "@/components/SosButton";
 import type { Shift } from "@/lib/types";
@@ -32,6 +32,11 @@ function TodayContent() {
   const shifts = useLiveQuery(() => db.shifts.orderBy("date").reverse().limit(4).toArray(), []);
   const cases = useLiveQuery(() => db.cases.toArray(), []);
   const openAlerts = useLiveQuery(() => db.alerts.where("status").equals("triggered").count(), []);
+  const offers = useLiveQuery(async () => {
+    const now = new Date().toISOString();
+    return (await db.shifts.toArray()).filter(
+      (s) => s.status === "offered" && s.nurseId === SELF_ID && (s.respondBy ?? "") >= now);
+  }, []);
 
   const hour = new Date().getHours();
   const greet = hour < 11 ? "早安" : hour < 18 ? "午安" : "晚安";
@@ -64,6 +69,32 @@ function TodayContent() {
         <div className="t-micro">{dateStr}</div>
         <h1 className="t-hero mt-0.5">{greet}，陳護理師</h1>
       </header>
+
+      {(offers ?? []).map((s) => (
+        <div key={s.id} className="sheet stripe stripe-ok">
+          <div className="sheet-title">
+            <span className="t-micro" style={{ color: "var(--a-ink)" }}>新派單待回覆</span>
+            <span className="t-micro num">期限 {new Date(s.respondBy!).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false })}</span>
+          </div>
+          <div className="px-3.5 py-2.5">
+            <div className="t-row">{caseName(s.caseId)}</div>
+            <div className="t-sub num">
+              {s.date.slice(5).replace("-", "/")}　{String(s.startHH).padStart(2, "0")}:00-{String(s.endHH).padStart(2, "0")}:00
+            </div>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {cases?.find((c) => c.id === s.caseId)?.careNeeds.map((n) => <span key={n} className="tag">{n}</span>)}
+            </div>
+          </div>
+          <div className="p-2.5 flex gap-2" style={{ borderTop: "1px solid var(--hairline)" }}>
+            <button className="btn btn-primary flex-1"
+                    onClick={() => db.shifts.update(s.id, { status: "accepted" })}>接受</button>
+            <button className="btn btn-quiet flex-1"
+                    onClick={() => db.shifts.update(s.id, { status: "unassigned", nurseId: undefined, offeredAt: undefined, respondBy: undefined })}>
+              拒絕
+            </button>
+          </div>
+        </div>
+      ))}
 
       {(openAlerts ?? 0) > 0 && (
         <Link href="/admin" className="sheet stripe stripe-caution flex items-center gap-3 px-3.5 py-3">
