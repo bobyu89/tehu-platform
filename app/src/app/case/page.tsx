@@ -1,12 +1,12 @@
 "use client";
-import { useParams } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { getDb } from "@/lib/db";
+import { useCaseId } from "@/components/useCaseId";
 import { VitalsForm } from "@/components/VitalsForm";
 
 export default function CaseVitalsPage() {
-  const params = useParams<{ id: string }>();
-  const info = useLiveQuery(() => getDb().cases.get(params.id), [params.id]);
+  const caseId = useCaseId();
+  const info = useLiveQuery(() => (caseId ? getDb().cases.get(caseId) : undefined), [caseId]);
   if (!info) return null;
   return <VitalsForm info={info} />;
 }

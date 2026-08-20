@@ -1,9 +1,9 @@
 "use client";
 import { useState } from "react";
-import { useParams } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { GearSix } from "@phosphor-icons/react";
 import { getDb } from "@/lib/db";
+import { useCaseId } from "@/components/useCaseId";
 import type { ObsType } from "@/lib/types";
 import { OBS_LABEL, OBS_UNIT } from "@/lib/types";
 import { computeBaseline, DEFAULT_RULES, round1 } from "@/lib/alert-engine";
@@ -12,18 +12,18 @@ import { TrendChart, type TrendPoint } from "@/components/TrendChart";
 const TYPES: ObsType[] = ["spo2", "bp", "hr", "rr", "bt", "glucose"];
 
 export default function TrendsPage() {
-  const params = useParams<{ id: string }>();
+  const caseId = useCaseId();
   const [type, setType] = useState<ObsType>("spo2");
 
   const data = useLiveQuery(async () => {
     const since = new Date(Date.now() - 7 * 86400_000).toISOString();
     return getDb().observations
-      .where("[caseId+type]").equals([params.id, type])
+      .where("[caseId+type]").equals([caseId, type])
       .filter((o) => o.measuredAt >= since && typeof o.value.main === "number")
       .sortBy("measuredAt");
-  }, [params.id, type]);
+  }, [caseId, type]);
 
-  const info = useLiveQuery(() => getDb().cases.get(params.id), [params.id]);
+  const info = useLiveQuery(() => (caseId ? getDb().cases.get(caseId) : undefined), [caseId]);
 
   const points: TrendPoint[] = (data ?? []).map((o) => ({
     t: new Date(o.measuredAt).getTime(), v: o.value.main as number, iso: o.measuredAt,

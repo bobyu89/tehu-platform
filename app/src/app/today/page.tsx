@@ -136,14 +136,14 @@ function TodayContent() {
               )}
               {s.status === "in_progress" && (
                 <>
-                  <Link href={`/case/${s.caseId}`} className="btn btn-primary flex-1">進入照護紀錄</Link>
+                  <Link href={`/case?id=${s.caseId}`} className="btn btn-primary flex-1">進入照護紀錄</Link>
                   <button className="btn btn-quiet" onClick={() => clockOut(s)} aria-label="下班打卡">
                     <SignOut size={18} />
                   </button>
                 </>
               )}
               {s.status === "completed" && (
-                <Link href={`/case/${s.caseId}/handoff`} className="btn btn-quiet flex-1">填寫交班</Link>
+                <Link href={`/case/handoff?id=${s.caseId}`} className="btn btn-quiet flex-1">填寫交班</Link>
               )}
             </div>
 
@@ -163,7 +163,7 @@ function TodayContent() {
       <section className="sheet">
         <div className="sheet-title"><span className="t-micro">我的個案</span></div>
         {(cases ?? []).map((c) => (
-          <Link key={c.id} href={`/case/${c.id}`} className="row stripe stripe-ok">
+          <Link key={c.id} href={`/case?id=${c.id}`} className="row stripe stripe-ok">
             <div className="flex-1 min-w-0">
               <div className="t-row">
                 {c.name}

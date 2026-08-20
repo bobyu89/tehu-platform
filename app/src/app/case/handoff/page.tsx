@@ -1,9 +1,9 @@
 "use client";
 import { useState } from "react";
-import { useParams } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Check, Plus, Sparkle, Trash, Warning, WarningOctagon, ArchiveBoxIcon as ArchiveBox } from "@phosphor-icons/react";
 import { getDb, uid } from "@/lib/db";
+import { useCaseId } from "@/components/useCaseId";
 import type { Handoff } from "@/lib/types";
 import { OBS_LABEL, OBS_UNIT } from "@/lib/types";
 import { buildDigest, draftSummary, fmtDateTime } from "@/lib/digest";
@@ -23,8 +23,7 @@ const CHECK_ITEMS = [
 ];
 
 export default function HandoffPage() {
-  const params = useParams<{ id: string }>();
-  const caseId = params.id;
+  const caseId = useCaseId();
   const db = getDb();
   const [startNew, setStartNew] = useState(false);
 

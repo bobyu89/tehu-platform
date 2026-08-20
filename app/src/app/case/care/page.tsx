@@ -1,9 +1,9 @@
 "use client";
 import { useState } from "react";
-import { useParams } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Check, Phone, WarningOctagon } from "@phosphor-icons/react";
 import { getDb, uid } from "@/lib/db";
+import { useCaseId } from "@/components/useCaseId";
 import type { CareEvent, MedLog, Observation, ObsType } from "@/lib/types";
 import { fmtTime } from "@/lib/digest";
 
@@ -43,8 +43,7 @@ const AMOUNTS = ["少", "中", "多"];
 const RED_FLAGS = ["新發胸痛", "跌倒撞頭", "新發單側無力或口齒不清"];
 
 export default function CarePage() {
-  const params = useParams<{ id: string }>();
-  const caseId = params.id;
+  const caseId = useCaseId();
   const db = getDb();
 
   const info = useLiveQuery(() => db.cases.get(caseId), [caseId]);

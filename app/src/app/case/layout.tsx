@@ -1,20 +1,20 @@
 "use client";
 import { useEffect } from "react";
-import { useParams } from "next/navigation";
 import { ensureSeeded } from "@/lib/seed";
 import { useMounted } from "@/components/useMounted";
+import { useCaseId } from "@/components/useCaseId";
 import { CaseHeader } from "@/components/CaseTabs";
 import { SosButton } from "@/components/SosButton";
 
 export default function CaseLayout({ children }: { children: React.ReactNode }) {
   const mounted = useMounted();
-  const params = useParams<{ id: string }>();
+  const caseId = useCaseId();
   useEffect(() => { if (mounted) void ensureSeeded(); }, [mounted]);
-  if (!mounted) return null;
+  if (!mounted || !caseId) return null;
 
   return (
     <div>
-      <CaseHeader caseId={params.id} />
+      <CaseHeader caseId={caseId} />
       <main className="mx-auto max-w-md px-4 py-4">{children}</main>
       <SosButton />
     </div>

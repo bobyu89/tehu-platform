@@ -38,12 +38,12 @@ export function CaseHeader({ caseId }: { caseId: string }) {
     );
   }
 
-  const base = `/case/${caseId}`;
+  const q = `?id=${caseId}`;
   const tabs = [
-    { href: base, label: "量測" },
-    { href: `${base}/care`, label: "照護" },
-    { href: `${base}/trends`, label: "趨勢" },
-    { href: `${base}/handoff`, label: "交班" },
+    { path: "/case", href: `/case${q}`, label: "量測" },
+    { path: "/case/care", href: `/case/care${q}`, label: "照護" },
+    { path: "/case/trends", href: `/case/trends${q}`, label: "趨勢" },
+    { path: "/case/handoff", href: `/case/handoff${q}`, label: "交班" },
   ];
 
   return (
@@ -89,7 +89,7 @@ export function CaseHeader({ caseId }: { caseId: string }) {
 
         <nav className="mt-2.5 flex gap-1">
           {tabs.map((t) => {
-            const active = pathname === t.href;
+            const active = pathname.replace(/\/$/, "") === t.path || pathname.replace(/\/$/, "").endsWith(t.path);
             return (
               <Link key={t.href} href={t.href}
                     className="flex-1 flex items-center justify-center text-center t-label"

@@ -103,7 +103,7 @@ function AdminContent() {
                     NEWS2 {n.complete ? `${n.total}・${n.bandLabel}` : "資料不全"}
                   </span>
                 )}
-                <Link href={`/case/${c.id}/trends`} className="t-micro flex items-center" style={{ color: "var(--a-ink)" }}>
+                <Link href={`/case/trends?id=${c.id}`} className="t-micro flex items-center" style={{ color: "var(--a-ink)" }}>
                   趨勢 <CaretRight size={12} />
                 </Link>
               </span>
