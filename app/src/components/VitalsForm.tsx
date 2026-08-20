@@ -35,7 +35,7 @@ interface Result {
   news2: News2Result | null; news2AlertsOff: boolean;
 }
 
-export function VitalsForm({ info }: { info: CaseInfo }) {
+export function VitalsForm({ info, inline = false }: { info: CaseInfo; inline?: boolean }) {
   const caseId = info.id;
   const [vals, setVals] = useState<Record<NumKey, string>>(
     { bt: "", hr: "", rr: "", sbp: "", dbp: "", spo2: "", glucose: "" });
@@ -184,7 +184,7 @@ export function VitalsForm({ info }: { info: CaseInfo }) {
   }, [caseId, info.vitalsIntervalH]) ?? 0;
 
   return (
-    <div className="flex flex-col gap-3 pb-32">
+    <div className={`flex flex-col gap-3 ${inline ? "" : "pb-32"}`}>
       {overdueMin > 30 && (
         <div className="sheet stripe stripe-caution flex items-center gap-2.5 px-3.5 py-2.5">
           <Warning size={17} weight="fill" color="var(--caution)" className="shrink-0" />
@@ -255,16 +255,23 @@ export function VitalsForm({ info }: { info: CaseInfo }) {
         </div>
       </section>
 
-      {/* 送出固定在拇指區，不隨捲動消失 */}
-      <div className="fixed bottom-0 left-0 right-0 z-20 px-4 pt-3 pb-4"
-           style={{ background: "linear-gradient(to top, var(--bg) 72%, transparent)" }}>
-        <div className="mx-auto max-w-md">
-          <button className="btn btn-primary w-full" style={{ minHeight: 54, fontSize: 16 }}
-                  disabled={!anyInput || saving} onClick={submit}>
-            {saving ? "儲存中" : "送出並判定"}
-          </button>
+      {/* 行動版：送出固定在拇指區；工作區欄位內改為一般排版 */}
+      {inline ? (
+        <button className="btn btn-primary w-full" style={{ minHeight: 52, fontSize: 16 }}
+                disabled={!anyInput || saving} onClick={submit}>
+          {saving ? "儲存中" : "送出並判定"}
+        </button>
+      ) : (
+        <div className="fixed bottom-0 left-0 right-0 z-20 px-4 pt-3 pb-4"
+             style={{ background: "linear-gradient(to top, var(--bg) 72%, transparent)" }}>
+          <div className="mx-auto max-w-md">
+            <button className="btn btn-primary w-full" style={{ minHeight: 54, fontSize: 16 }}
+                    disabled={!anyInput || saving} onClick={submit}>
+              {saving ? "儲存中" : "送出並判定"}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       <p className="t-micro text-center" style={{ letterSpacing: 0, fontWeight: 400 }}>
         示範模式：警報於本機判定顯示。正式版由伺服器權威判定並推播 LINE 與簡訊。

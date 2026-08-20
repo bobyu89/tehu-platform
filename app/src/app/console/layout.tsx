@@ -2,14 +2,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  SquaresFour, BellRinging, UsersThree, DeviceMobile, ChartLineUp,
+  SquaresFour, BellRinging, UsersThree, ChartLineUp, CalendarCheck, FirstAid,
   BookOpenText, Signature, Pulse, HeartStraight,
 } from "@phosphor-icons/react";
+import { SosButton } from "@/components/SosButton";
 
 // 桌面主控台外殼：左側導覽＋內容區。行動裝置（<lg）側欄收合為頂部橫列。
 
 const NAV = [
   { href: "/console", label: "總覽", icon: SquaresFour },
+  { href: "/console/today", label: "今日班次", icon: CalendarCheck },
+  { href: "/console/case", label: "個案照護", icon: FirstAid },
   { href: "/console/alerts", label: "警報中心", icon: BellRinging },
   { href: "/console/dispatch", label: "個案與派單", icon: UsersThree },
   { href: "/console/family-report", label: "家屬日報", icon: HeartStraight },
@@ -24,8 +27,9 @@ const PLANNED = [
 export default function ConsoleLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
+  const clean = pathname.replace(/\/$/, "");
   const items = NAV.map((n) => {
-    const active = pathname === n.href;
+    const active = clean === n.href || clean.endsWith(n.href);
     const Icon = n.icon;
     return (
       <Link key={n.href} href={n.href}
@@ -53,13 +57,6 @@ export default function ConsoleLayout({ children }: { children: React.ReactNode 
         </div>
         <div className="flex flex-col gap-1 pt-2">{items}</div>
 
-        <div className="mt-3 pt-2 flex flex-col gap-1" style={{ borderTop: "1px solid var(--hairline)" }}>
-          <div className="t-micro px-3 py-1">其他入口</div>
-          <Link href="/today" className="flex items-center gap-2.5 px-3 t-label" style={{ color: "var(--ink-2)", minHeight: 40 }}>
-            <DeviceMobile size={17} /> 護理師端（行動）
-          </Link>
-        </div>
-
         <div className="mt-auto pt-2 flex flex-col gap-0.5" style={{ borderTop: "1px solid var(--hairline)" }}>
           <div className="t-micro px-3 py-1">規劃中</div>
           {PLANNED.map((p) => {
@@ -77,16 +74,14 @@ export default function ConsoleLayout({ children }: { children: React.ReactNode 
         </div>
       </aside>
 
-      {/* 頂列（行動） */}
+      {/* 頂列（行動；手機版精修留待下一階段） */}
       <div className="lg:hidden sticky top-0 z-30 px-3 py-2 flex gap-1 overflow-x-auto"
            style={{ background: "var(--surface)", borderBottom: "1px solid var(--line)" }}>
         {items}
-        <Link href="/today" className="flex items-center gap-1.5 px-3 t-label shrink-0" style={{ color: "var(--ink-2)", minHeight: 42 }}>
-          <DeviceMobile size={16} /> 護理師端
-        </Link>
       </div>
 
       <main className="flex-1 min-w-0">{children}</main>
+      <SosButton />
     </div>
   );
 }

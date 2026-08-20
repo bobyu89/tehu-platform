@@ -194,7 +194,7 @@ function ConsoleContent() {
               const p = perCase?.[c.id];
               const n = p?.news2;
               return (
-                <Link key={c.id} href={`/case/trends?id=${c.id}`} className="row row-tap" style={{ display: "flex" }}>
+                <Link key={c.id} href={`/console/case?id=${c.id}`} className="row row-tap" style={{ display: "flex" }}>
                   <div className="flex-1 min-w-0">
                     <div className="t-label">
                       {c.name}
