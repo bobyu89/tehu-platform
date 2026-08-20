@@ -80,8 +80,8 @@ function AdminContent() {
           <Link href="/today" className="t-label flex items-center gap-0.5" style={{ color: "var(--a-ink)" }}>
             <CaretLeft size={15} /> 護理師端
           </Link>
-          <Link href="/admin/dispatch" className="t-label flex items-center gap-0.5" style={{ color: "var(--a-ink)" }}>
-            個案與派單 <CaretRight size={15} />
+          <Link href="/console" className="t-label flex items-center gap-0.5" style={{ color: "var(--a-ink)" }}>
+            桌面主控台 <CaretRight size={15} />
           </Link>
         </span>
       </header>

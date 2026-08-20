@@ -1,5 +1,5 @@
 import { getDb, uid } from "./db";
-import type { CaseInfo, Med, Nurse, Observation, ObsType, Shift } from "./types";
+import type { AlertRow, CaseInfo, Med, Nurse, Observation, ObsType, Shift } from "./types";
 
 /** 目前登入的示範護理師 */
 export const SELF_ID = "nurse-chen";
@@ -83,6 +83,42 @@ function obs(
   return { id: uid(), caseId, type, category, value, measuredAt, recordedAt: measuredAt, source: "manual" };
 }
 
+/** 歷史警報樣本池（供主控台趨勢圖與佇列歷史展示；全部已結案） */
+const ALERT_POOL: { caseId: string; level: "yellow" | "red"; summary: string }[] = [
+  { caseId: "case-wang", level: "yellow", summary: "SBP 182mmHg（≥黃色上限 180）" },
+  { caseId: "case-wang", level: "yellow", summary: "血糖 262mg/dL（≥黃色上限 250）" },
+  { caseId: "case-lee", level: "yellow", summary: "SpO2 87%（≤個案覆寫黃色下限 87）" },
+  { caseId: "case-lee", level: "yellow", summary: "呼吸 22次/分（≥黃色上限 21）" },
+  { caseId: "case-wang", level: "yellow", summary: "體溫 38.2°C（≥黃色上限 38）" },
+  { caseId: "case-lee", level: "red", summary: "SpO2 85%（≤個案覆寫紅色下限 85）" },
+];
+
+/** 生成該日的歷史警報（已結案），供主控台趨勢圖與佇列歷史 */
+function genDayAlerts(daysAgo: number): AlertRow[] {
+  const day = new Date();
+  day.setDate(day.getDate() - daysAgo);
+  const rnd = lcg(7 + day.getFullYear() * 10000 + (day.getMonth() + 1) * 100 + day.getDate());
+  const out: AlertRow[] = [];
+  const n = Math.floor(rnd() * 3); // 每日 0-2 件黃色
+  for (let i = 0; i < n; i++) {
+    const pick = ALERT_POOL[Math.floor(rnd() * 5)]; // 前 5 筆為黃色
+    out.push({
+      id: uid(), caseId: pick.caseId, layer: "A", level: pick.level, summary: pick.summary,
+      status: "closed", triggeredAt: isoAt(daysAgo, 9 + Math.floor(rnd() * 10)),
+      handledNote: rnd() > 0.5 ? "已觀察複測" : "已聯絡家屬",
+    });
+  }
+  if (rnd() > 0.82) { // 偶發紅色
+    const red = ALERT_POOL[5];
+    out.push({
+      id: uid(), caseId: red.caseId, layer: "A", level: red.level, summary: red.summary,
+      status: "closed", triggeredAt: isoAt(daysAgo, 3 + Math.floor(rnd() * 4)),
+      handledNote: "已聯絡醫師",
+    });
+  }
+  return out;
+}
+
 /** 生成「距今 daysAgo 天」那一天的示範量測；以該日曆日為亂數種子，重跑結果一致 */
 function genDay(daysAgo: number): Observation[] {
   const day = new Date();
@@ -129,21 +165,24 @@ export async function ensureSeeded(): Promise<void> {
 
   // 量測史：首次全量（近 7 天），之後每天補缺的日子。
   // 交易內重讀 seed_day 防多頁同時掛載的競態。
-  await db.transaction("rw", [db.observations, db.meta], async () => {
+  await db.transaction("rw", [db.observations, db.alerts, db.meta], async () => {
     const mark = await db.meta.get("seed_day");
-    if (!mark) {
+    const fill = async (fromDaysAgo: number) => {
       const rows: Observation[] = [];
-      for (let d = 7; d >= 1; d--) rows.push(...genDay(d));
-      await db.observations.bulkPut(rows);
+      const alerts: AlertRow[] = [];
+      for (let d = fromDaysAgo; d >= 1; d--) { rows.push(...genDay(d)); alerts.push(...genDayAlerts(d)); }
+      if (rows.length > 0) await db.observations.bulkPut(rows);
+      if (alerts.length > 0) await db.alerts.bulkPut(alerts);
+    };
+    if (!mark) {
+      await fill(7);
       await db.meta.put({ id: "seed_day", value: today });
       return;
     }
     if (mark.value !== today) {
       const last = new Date(mark.value + "T00:00:00");
       const gap = Math.min(7, Math.max(0, Math.round((Date.now() - last.getTime()) / 86400_000)));
-      const rows: Observation[] = [];
-      for (let d = gap; d >= 1; d--) rows.push(...genDay(d));
-      if (rows.length > 0) await db.observations.bulkPut(rows);
+      await fill(gap);
       await db.meta.put({ id: "seed_day", value: today });
     }
   });
