@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from "dexie";
-import type { Observation, AlertRow, CaseInfo, Shift, Handoff, SosIncident, CareEvent, Nurse, Med, MedLog } from "./types";
+import type { Observation, AlertRow, CaseInfo, Shift, Handoff, SosIncident, CareEvent, Nurse, Med, MedLog, SignedDoc } from "./types";
 
 // 離線優先（02 冊 UX 原則）：本地 IndexedDB 為寫入第一站。
 // 接上 Supabase 後，此層即成為同步佇列（queue → server 權威判定）。
@@ -14,6 +14,7 @@ class TehuDB extends Dexie {
   nurses!: EntityTable<Nurse, "id">;
   meds!: EntityTable<Med, "id">;
   medLogs!: EntityTable<MedLog, "id">;
+  signedDocs!: EntityTable<SignedDoc, "id">;
   meta!: EntityTable<{ id: string; value: string }, "id">;
 
   constructor() {
@@ -34,6 +35,9 @@ class TehuDB extends Dexie {
       nurses: "id",
       meds: "id, caseId",
       medLogs: "id, caseId",
+    });
+    this.version(4).stores({
+      signedDocs: "id, signedAt",
     });
   }
 }

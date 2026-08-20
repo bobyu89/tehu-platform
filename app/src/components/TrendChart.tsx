@@ -9,8 +9,8 @@ import { fmtDateTime } from "@/lib/digest";
 export interface TrendPoint { t: number; v: number; iso: string }
 
 export function TrendChart({
-  points, baseline, unit,
-}: { points: TrendPoint[]; baseline: Baseline | null; unit: string }) {
+  points, baseline, unit, maxV,
+}: { points: TrendPoint[]; baseline: Baseline | null; unit: string; maxV?: number }) {
   const W = 360, H = 170, PL = 36, PR = 10, PT = 10, PB = 22;
   const [hover, setHover] = useState<TrendPoint | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -29,6 +29,7 @@ export function TrendChart({
     }
     const pad = Math.max((hi - lo) * 0.12, 0.5);
     lo -= pad; hi += pad;
+    if (maxV != null && hi > maxV) hi = maxV; // 生理上限（如 SpO2 100%）不外溢
     const xs = (t: number) => PL + ((t - t0) / Math.max(1, t1 - t0)) * (W - PL - PR);
     const ys = (v: number) => PT + (1 - (v - lo) / (hi - lo)) * (H - PT - PB);
     const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${xs(p.t).toFixed(1)},${ys(p.v).toFixed(1)}`).join(" ");
@@ -40,7 +41,7 @@ export function TrendChart({
       bandY2: baseline?.enabled ? ys(baseline.mean - 2 * baseline.sd) : 0,
       meanY: baseline?.enabled ? ys(baseline.mean) : null,
     };
-  }, [points, baseline]);
+  }, [points, baseline, maxV]);
 
   function onMove(e: React.PointerEvent) {
     if (!svgRef.current || points.length === 0) return;

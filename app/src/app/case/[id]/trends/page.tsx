@@ -53,7 +53,7 @@ export default function TrendsPage() {
           )}
         </div>
 
-        <TrendChart points={points} baseline={baseline} unit={unit} />
+        <TrendChart points={points} baseline={baseline} unit={unit} maxV={type === "spo2" ? 100 : undefined} />
 
         <div className="px-3.5 pb-3 t-micro" style={{ letterSpacing: 0, fontWeight: 400 }}>
           {baseline.enabled ? (

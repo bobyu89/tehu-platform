@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   SquaresFour, BellRinging, UsersThree, DeviceMobile, ChartLineUp,
-  BookOpenText, Signature, Pulse,
+  BookOpenText, Signature, Pulse, HeartStraight,
 } from "@phosphor-icons/react";
 
 // 桌面主控台外殼：左側導覽＋內容區。行動裝置（<lg）側欄收合為頂部橫列。
@@ -12,12 +12,13 @@ const NAV = [
   { href: "/console", label: "總覽", icon: SquaresFour },
   { href: "/console/alerts", label: "警報中心", icon: BellRinging },
   { href: "/console/dispatch", label: "個案與派單", icon: UsersThree },
+  { href: "/console/family-report", label: "家屬日報", icon: HeartStraight },
+  { href: "/console/sign", label: "電子簽章", icon: Signature },
 ];
 
 const PLANNED = [
   { label: "報表分析", icon: ChartLineUp },
   { label: "衛教管理", icon: BookOpenText },
-  { label: "電子簽章", icon: Signature },
 ];
 
 export default function ConsoleLayout({ children }: { children: React.ReactNode }) {

@@ -140,8 +140,26 @@ export interface Handoff {
   aNote: string;
   rTodos: { text: string; time?: string }[];
   summaryDraft: string;
-  status: "draft" | "submitted";
+  /** 狀態機（03 冊）：draft → submitted →（疑義退回 draft）→ received 歸檔 */
+  status: "draft" | "submitted" | "received";
   submittedAt?: string;
+  /** 簽收勾稽區：全部勾認才能簽收 */
+  checklist?: Record<string, boolean>;
+  disputeNote?: string;  // 接班者疑義（退回時填寫）
+  receivedAt?: string;
+  supplementNote?: string; // 交班者對疑義的補充
+}
+
+export interface SignedDoc {
+  id: string;
+  kind: string;          // 文件類型
+  signerName: string;
+  caseId?: string;
+  consentElectronic: boolean; // 「同意以電子方式簽署」前置勾選（相對人同意要件）
+  signedAt: string;
+  sha256: string;        // 文件內容＋簽名影像＋時間戳之雜湊（存證）
+  deviceInfo: string;
+  signatureDataUrl: string;
 }
 
 export interface SosIncident {
