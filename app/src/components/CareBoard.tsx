@@ -4,6 +4,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { Check, Phone, WarningOctagon } from "@phosphor-icons/react";
 import { getDb, uid } from "@/lib/db";
 import type { CareEvent, MedLog, Observation, ObsType } from "@/lib/types";
+import { WoundSection } from "@/components/WoundSection";
 import { fmtTime } from "@/lib/digest";
 
 const WITHHOLD_REASONS = ["拒服", "禁食", "嘔吐", "其他"];
@@ -328,6 +329,9 @@ export function CareBoard({ caseId }: { caseId: string }) {
           );
         })}
       </section>
+
+      {/* 傷口／壓傷 */}
+      <WoundSection caseId={caseId} />
 
       {/* 質性紅旗 */}
       <section className="sheet">

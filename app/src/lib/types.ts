@@ -97,6 +97,31 @@ export interface Shift {
   clockInAt?: string;
   clockInGeo?: { lat: number; lng: number; acc: number } | null;
   clockOutAt?: string;
+  /** 出勤異常審核（04 冊：圈外/無定位不硬擋，標記進審核流） */
+  reviewStatus?: "approved" | "rejected";
+  reviewNote?: string;
+}
+
+/** 傷口／壓傷（02 冊 §1.3：人形圖點選＋拍照＋分期＋描述） */
+export interface Wound {
+  id: string;
+  caseId: string;
+  site: string;       // 人形圖部位代碼
+  siteLabel: string;  // 顯示名稱（後腦杓/薦尾…）
+  identifiedOn: string;
+  healedOn?: string;
+}
+
+export const WOUND_STAGES = ["1 期", "2 期", "3 期", "4 期", "深部組織損傷", "無法分期"] as const;
+
+export interface WoundAssessment {
+  id: string;
+  woundId: string;
+  caseId: string;
+  stage: (typeof WOUND_STAGES)[number];
+  note?: string;
+  photo?: string;     // 縮壓後的 dataURL（示範）；正式版存 Storage 並留存原檔
+  at: string;
 }
 
 export type CaseStatus = "inquiry" | "assessing" | "quoted" | "active" | "paused" | "closed";

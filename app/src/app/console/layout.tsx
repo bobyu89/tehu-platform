@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   SquaresFour, BellRinging, UsersThree, ChartLineUp, CalendarCheck, FirstAid,
-  BookOpenText, Signature, Pulse, HeartStraight,
+  BookOpenText, Signature, Pulse, HeartStraight, Timer,
 } from "@phosphor-icons/react";
 import { SosButton } from "@/components/SosButton";
 
@@ -15,6 +15,7 @@ const NAV = [
   { href: "/console/case", label: "個案照護", icon: FirstAid },
   { href: "/console/alerts", label: "警報中心", icon: BellRinging },
   { href: "/console/dispatch", label: "個案與派單", icon: UsersThree },
+  { href: "/console/attendance", label: "出勤與工時", icon: Timer },
   { href: "/console/edu", label: "衛教管理", icon: BookOpenText },
   { href: "/console/family-report", label: "家屬日報", icon: HeartStraight },
   { href: "/console/sign", label: "電子簽章", icon: Signature },
