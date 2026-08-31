@@ -1,4 +1,5 @@
 import { getDb, uid } from "./db";
+import { EDU_UNITS } from "./edu-seed";
 import type { AlertRow, CaseInfo, Med, Nurse, Observation, ObsType, Shift } from "./types";
 
 /** 目前登入的示範護理師 */
@@ -162,6 +163,7 @@ export async function ensureSeeded(): Promise<void> {
   await db.cases.bulkPut([CASE_WANG, CASE_LEE]);
   await db.nurses.bulkPut(NURSES);
   await db.meds.bulkPut(MEDS);
+  await db.eduUnits.bulkPut(EDU_UNITS);
 
   // 量測史：首次全量（近 7 天），之後每天補缺的日子。
   // 交易內重讀 seed_day 防多頁同時掛載的競態。

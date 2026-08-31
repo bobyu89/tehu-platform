@@ -150,6 +150,26 @@ export interface Handoff {
   supplementNote?: string; // 交班者對疑義的補充
 }
 
+/** 衛教單元（沿用衛教機器人 unit-schema：content 是唯一事實來源、media 只放資產編號） */
+export interface EduUnit {
+  id: string;            // TH-###
+  title: string;
+  audience: "病人" | "家屬" | "照護者";
+  keywords: string[];    // 用家屬的話，不是專業術語
+  content: string;       // 審核後才可對外；示範資料一律標示未審核
+  caution?: string;      // 回覆時的行為約束（內部提示，不對家屬顯示）
+  media?: { kind: "card" | "video" | "audio"; code: string; ready: boolean }[];
+  source: string;        // 來源與版本，供追溯
+  reviewed: boolean;     // 未審核單元不得實際推送
+}
+
+export interface EduPush {
+  id: string;
+  unitId: string;
+  caseId: string;
+  at: string;
+}
+
 export interface SignedDoc {
   id: string;
   kind: string;          // 文件類型

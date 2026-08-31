@@ -68,7 +68,12 @@ function Content() {
     const alertsToday = (await db.alerts.where("caseId").equals(caseId).toArray())
       .filter((a) => a.triggeredAt >= iso);
 
-    return { ranges, vitalsCount, intake, spo2Series, reposition, suction, medDue, medGiven, alertsToday: alertsToday.length };
+    const pushesToday = (await db.eduPushes.where("caseId").equals(caseId).toArray())
+      .filter((p) => p.at >= iso);
+    const units = await db.eduUnits.toArray();
+    const eduToday = pushesToday.map((p) => units.find((u) => u.id === p.unitId)?.title ?? p.unitId);
+
+    return { ranges, vitalsCount, intake, spo2Series, reposition, suction, medDue, medGiven, alertsToday: alertsToday.length, eduToday };
   }, [caseId]);
 
   const baseline = computeBaseline("spo2", (data?.spo2Series ?? []).map((p) => p.v));
@@ -140,6 +145,15 @@ function Content() {
             {(data?.medDue ?? 0) > 0 && <>　協助服藥 <b className="num">{data?.medGiven} / {data?.medDue}</b></>}
           </div>
         </div>
+
+        {(data?.eduToday ?? []).length > 0 && (
+          <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--hairline)" }}>
+            <div className="t-micro mb-1.5">今日衛教</div>
+            <div className="t-sub leading-7">
+              護理師今天為您準備了：{data!.eduToday.join("、")}（正式版附完整內容與影音）
+            </div>
+          </div>
+        )}
 
         <div className="px-4 py-3">
           <div className="t-micro mb-1.5">護理師的話</div>

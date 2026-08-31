@@ -15,13 +15,10 @@ const NAV = [
   { href: "/console/case", label: "個案照護", icon: FirstAid },
   { href: "/console/alerts", label: "警報中心", icon: BellRinging },
   { href: "/console/dispatch", label: "個案與派單", icon: UsersThree },
+  { href: "/console/edu", label: "衛教管理", icon: BookOpenText },
   { href: "/console/family-report", label: "家屬日報", icon: HeartStraight },
   { href: "/console/sign", label: "電子簽章", icon: Signature },
-];
-
-const PLANNED = [
-  { label: "報表分析", icon: ChartLineUp },
-  { label: "衛教管理", icon: BookOpenText },
+  { href: "/console/reports", label: "報表分析", icon: ChartLineUp },
 ];
 
 export default function ConsoleLayout({ children }: { children: React.ReactNode }) {
@@ -57,18 +54,8 @@ export default function ConsoleLayout({ children }: { children: React.ReactNode 
         </div>
         <div className="flex flex-col gap-1 pt-2">{items}</div>
 
-        <div className="mt-auto pt-2 flex flex-col gap-0.5" style={{ borderTop: "1px solid var(--hairline)" }}>
-          <div className="t-micro px-3 py-1">規劃中</div>
-          {PLANNED.map((p) => {
-            const Icon = p.icon;
-            return (
-              <div key={p.label} className="flex items-center gap-2.5 px-3 t-label" style={{ color: "var(--ink-3)", minHeight: 36 }}>
-                <Icon size={16} /> {p.label}
-                <span className="tag" style={{ marginLeft: "auto", fontSize: 10 }}>Phase 2+</span>
-              </div>
-            );
-          })}
-          <p className="t-micro px-3 pt-2" style={{ fontWeight: 400, letterSpacing: 0 }}>
+        <div className="mt-auto pt-2" style={{ borderTop: "1px solid var(--hairline)" }}>
+          <p className="t-micro px-3 pt-1" style={{ fontWeight: 400, letterSpacing: 0 }}>
             開發版・離線示範模式
           </p>
         </div>
