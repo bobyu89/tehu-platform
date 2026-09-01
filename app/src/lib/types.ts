@@ -66,6 +66,7 @@ export interface CaseInfo {
   news2Scale2?: boolean;    // COPD 等高碳酸血症風險個案改用 SpO2 Scale 2
   news2AlertsOff?: boolean; // B 層警報停用（慢性穩定個案；計分仍保留供排序）
   status?: CaseStatus;      // 個案狀態機（04 冊）；未填視為 active
+  closedReason?: string;    // 結案原因（出院／往生／轉介／終止）
   vitalsIntervalH?: number; // 生命徵象量測排程（如 Q4H＝4）；逾 30 分未量提醒
 }
 

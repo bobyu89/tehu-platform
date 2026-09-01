@@ -30,10 +30,13 @@ function Content() {
     const todayIso = todayStart.toISOString();
 
     const alerts = (await db.alerts.toArray()).filter((a) => a.triggeredAt >= since7d);
-    const claimed = alerts.filter((a) => a.claimedAt);
-    const respMins = claimed.map((a) =>
-      (new Date(a.claimedAt!).getTime() - new Date(a.triggeredAt).getTime()) / 60000);
-    const avgResp = respMins.length > 0 ? respMins.reduce((x, y) => x + y, 0) / respMins.length : null;
+    const mins = (rows: typeof alerts) => {
+      const v = rows.filter((a) => a.claimedAt)
+        .map((a) => (new Date(a.claimedAt!).getTime() - new Date(a.triggeredAt).getTime()) / 60000);
+      return v.length > 0 ? { avg: v.reduce((x, y) => x + y, 0) / v.length, n: v.length } : null;
+    };
+    const redResp = mins(alerts.filter((a) => a.level === "red"));
+    const allResp = mins(alerts);
 
     const byLayer: Record<string, { yellow: number; red: number }> = {};
     for (const a of alerts) {
@@ -65,7 +68,7 @@ function Content() {
     return {
       alerts7d: alerts.length,
       red7d: alerts.filter((a) => a.level === "red").length,
-      avgResp, respN: respMins.length,
+      redResp, allResp,
       byLayer,
       medDue, medGiven, withheldReasons,
       reposition, suction, tubeChecks,
@@ -93,10 +96,11 @@ function Content() {
         <div className="sheet stripe stripe-ok px-3.5 py-3">
           <div className="t-micro">紅色警報平均認領</div>
           <div className="num" style={{ fontSize: 26, fontWeight: 800 }}>
-            {s?.avgResp != null ? `${s.avgResp < 1 ? "<1" : Math.round(s.avgResp)} 分` : "無資料"}
+            {s?.redResp ? `${s.redResp.avg < 1 ? "<1" : Math.round(s.redResp.avg)} 分` : "近 7 日無紅色"}
           </div>
           <div className="t-micro" style={{ fontWeight: 400, letterSpacing: 0 }}>
-            出場判準 中位數 5 分內・樣本 {s?.respN ?? 0}
+            出場判準 5 分內・紅色樣本 {s?.redResp?.n ?? 0}
+            {s?.allResp ? `　全部警報 ${Math.round(s.allResp.avg)} 分` : ""}
           </div>
         </div>
         <div className="sheet stripe stripe-ok px-3.5 py-3">

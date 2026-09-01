@@ -83,7 +83,7 @@ function ConsoleContent() {
   const claim = (a: AlertRow) => db.alerts.update(a.id, { status: "claimed", claimedAt: new Date().toISOString() });
   const close = (a: AlertRow) => db.alerts.update(a.id, { status: "closed" });
 
-  const sortedCases = [...(cases ?? [])].sort((a, b) =>
+  const sortedCases = [...activeCases].sort((a, b) =>
     (perCase?.[b.id]?.news2.total ?? -1) - (perCase?.[a.id]?.news2.total ?? -1));
 
   // 七日警報趨勢（含今日）

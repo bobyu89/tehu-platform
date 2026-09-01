@@ -10,7 +10,7 @@ import { fmtTime } from "@/lib/digest";
 
 // 出勤與工時（規格 04 冊 §1）：
 // 圈外/無定位打卡不硬擋、標記異常進審核流；出勤逐分鐘記錄、保存 5 年（勞基法 §30）；
-// 月工時統計與 CSV 匯出備勞檢。
+// 近 30 日工時統計與 CSV 匯出備勞檢。
 
 export default function AttendancePage() {
   const mounted = useMounted();
@@ -19,6 +19,11 @@ export default function AttendancePage() {
 }
 
 const isAnomaly = (s: Shift) => Boolean(s.clockInAt) && !s.clockInGeo;
+
+/** 近 30 日的起算日（跨月時仍有意義，優於日曆月） */
+function since30Days(): string {
+  return new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10);
+}
 
 function Content() {
   useEffect(() => { void ensureSeeded(); }, []);
@@ -38,10 +43,10 @@ function Content() {
     return (new Date(s.clockOutAt).getTime() - new Date(s.clockInAt).getTime()) / 3600_000;
   };
 
-  // 本月每位護理師的班數與時數
-  const month = new Date().toISOString().slice(0, 7);
+  // 近 30 日每位護理師的班數與時數（跨月時仍有意義，優於日曆月）
+  const since30 = since30Days();
   const byNurse: Record<string, { shifts: number; hours: number }> = {};
-  for (const s of clocked.filter((x) => x.date.startsWith(month))) {
+  for (const s of clocked.filter((x) => x.date >= since30)) {
     const key = s.nurseId ?? "?";
     byNurse[key] = byNurse[key] ?? { shifts: 0, hours: 0 };
     byNurse[key].shifts += 1;
@@ -65,7 +70,7 @@ function Content() {
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = `出勤紀錄_${month}.csv`;
+    a.download = `出勤紀錄_近30日.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -81,7 +86,7 @@ function Content() {
           </p>
         </div>
         <button className="btn btn-quiet" onClick={exportCsv}>
-          <DownloadSimple size={16} /> 匯出 {month} CSV
+          <DownloadSimple size={16} /> 匯出 CSV 備勞檢
         </button>
       </header>
 
@@ -146,8 +151,8 @@ function Content() {
         </section>
 
         <section className="sheet">
-          <div className="sheet-title"><span className="t-micro">本月工時（{month}）</span></div>
-          {Object.keys(byNurse).length === 0 && <div className="empty">本月尚無完成打卡的班次</div>}
+          <div className="sheet-title"><span className="t-micro">近 30 日工時</span></div>
+          {Object.keys(byNurse).length === 0 && <div className="empty">近 30 日尚無完成打卡的班次</div>}
           {Object.entries(byNurse).map(([id, v]) => (
             <div key={id} className="row">
               <span className="t-label flex-1">{nurseName(id)}</span>
