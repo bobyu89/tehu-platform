@@ -8,6 +8,8 @@ import { ensureSeeded } from "@/lib/seed";
 import { useMounted } from "@/components/useMounted";
 import type { CaseInfo, CaseStatus, Shift } from "@/lib/types";
 import { CASE_STATUS_LABEL } from "@/lib/types";
+import * as shiftOps from "@/modules/shifts";
+import { isOfferExpired } from "@/modules/shifts";
 import { fmtTime } from "@/lib/digest";
 
 // 派單（規格 04 冊 §2）：個案建檔、狀態機、班次指派。
@@ -22,10 +24,6 @@ const NEED_OPTIONS = ["管灌", "血糖監測", "氧療照護", "抽痰", "傷�
 
 function dstr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function respondDeadline(): string {
-  return new Date(Date.now() + 30 * 60_000).toISOString(); // 30 分鐘回覆期限
 }
 
 export default function DispatchPage() {
@@ -63,23 +61,17 @@ function DispatchContent() {
   }
 
   async function assign(shift: Shift, nurseId: string) {
-    await db.shifts.update(shift.id, {
-      status: "offered", nurseId,
-      offeredAt: new Date().toISOString(),
-      respondBy: respondDeadline(),
-    });
+    await shiftOps.assign(shift.id, nurseId);
     setAssignFor(null);
   }
 
-  async function recall(shift: Shift) {
-    await db.shifts.update(shift.id, { status: "unassigned", nurseId: undefined, offeredAt: undefined, respondBy: undefined });
-  }
+  const recall = (shift: Shift) => shiftOps.recall(shift.id);
 
   const nameOf = (id?: string) => nurses?.find((n) => n.id === id)?.name ?? "";
   const caseOf = (id: string) => cases?.find((c) => c.id === id);
 
   const shiftTag = (s: Shift) => {
-    const expired = s.status === "offered" && s.respondBy && s.respondBy < new Date().toISOString();
+    const expired = isOfferExpired(s);
     if (expired) return <span className="tag tag-caution">逾時未回覆</span>;
     switch (s.status) {
       case "unassigned": return <span className="tag tag-caution">待派</span>;
@@ -161,13 +153,13 @@ function DispatchContent() {
               </div>
             </div>
             {shiftTag(s)}
-            {(s.status === "unassigned" || (s.status === "offered" && s.respondBy && s.respondBy < new Date().toISOString())) && (
+            {(s.status === "unassigned" || isOfferExpired(s)) && (
               <button className="btn btn-primary shrink-0" style={{ minHeight: 38, padding: "0 11px", fontSize: 13 }}
                       onClick={() => setAssignFor(s)}>
                 <UserPlus size={15} weight="bold" /> 指派
               </button>
             )}
-            {s.status === "offered" && s.respondBy && s.respondBy >= new Date().toISOString() && (
+            {s.status === "offered" && !isOfferExpired(s) && (
               <button className="btn btn-quiet shrink-0" style={{ minHeight: 38, padding: "0 11px", fontSize: 13 }}
                       onClick={() => recall(s)}>撤回</button>
             )}

@@ -1,5 +1,9 @@
 import Dexie, { type EntityTable } from "dexie";
-import type { Observation, AlertRow, CaseInfo, Shift, Handoff, SosIncident, CareEvent, Nurse, Med, MedLog, SignedDoc, EduUnit, EduPush, Wound, WoundAssessment } from "./types";
+import type {
+  Observation, AlertRow, CaseInfo, Shift, Handoff, SosIncident, CareEvent, Nurse, Med, MedLog,
+  SignedDoc, EduUnit, EduPush, Wound, WoundAssessment,
+  Customer, ServiceRequest, Review, Complaint, NurseProfile,
+} from "./types";
 
 // 離線優先（02 冊 UX 原則）：本地 IndexedDB 為寫入第一站。
 // 接上 Supabase 後，此層即成為同步佇列（queue → server 權威判定）。
@@ -19,6 +23,11 @@ class TehuDB extends Dexie {
   eduPushes!: EntityTable<EduPush, "id">;
   wounds!: EntityTable<Wound, "id">;
   woundAssessments!: EntityTable<WoundAssessment, "id">;
+  customers!: EntityTable<Customer, "id">;
+  requests!: EntityTable<ServiceRequest, "id">;
+  reviews!: EntityTable<Review, "id">;
+  complaints!: EntityTable<Complaint, "id">;
+  nurseProfiles!: EntityTable<NurseProfile, "nurseId">;
   meta!: EntityTable<{ id: string; value: string }, "id">;
 
   constructor() {
@@ -50,6 +59,13 @@ class TehuDB extends Dexie {
     this.version(6).stores({
       wounds: "id, caseId",
       woundAssessments: "id, woundId, caseId, at",
+    });
+    this.version(7).stores({
+      customers: "id",
+      requests: "id, status, createdAt",
+      reviews: "id, caseId, nurseId, at",
+      complaints: "id, status, at",
+      nurseProfiles: "nurseId",
     });
   }
 }

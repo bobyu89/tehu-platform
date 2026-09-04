@@ -230,3 +230,86 @@ export const OBS_UNIT: Partial<Record<ObsType, string>> = {
   intake_oral: "ml", intake_tube: "ml", intake_iv: "ml",
   output_urine: "ml", output_drain: "ml", o2: "L/min",
 };
+
+/* ============ 三端平台：客戶、需求、評價、客訴、人員檔案 ============ */
+
+/** 客戶（付費／決策的家屬），與個案（病人）分開 */
+export interface Customer {
+  id: string;
+  name: string;
+  relation: string;      // 與個案關係
+  phone: string;
+  lineBound: boolean;
+  caseIds: string[];
+  createdAt: string;
+  note?: string;
+}
+
+export type RequestStatus = "new" | "contacted" | "quoted" | "converted" | "declined";
+
+export const REQUEST_STATUS_LABEL: Record<RequestStatus, string> = {
+  new: "待聯繫", contacted: "已聯繫", quoted: "已報價", converted: "已成案", declined: "未成案",
+};
+
+/** 客戶線上提出的服務需求單 */
+export interface ServiceRequest {
+  id: string;
+  customerName: string;
+  phone: string;
+  relation: string;
+  setting: "居家" | "醫院";
+  area: string;
+  needs: string[];          // 技術需求標籤
+  startDate: string;
+  shiftPref: string;        // 白班／夜班／全天
+  note?: string;
+  status: RequestStatus;
+  createdAt: string;
+  caseId?: string;          // 成案後連結的個案
+}
+
+/** 服務評價（客戶對護理師） */
+export interface Review {
+  id: string;
+  caseId: string;
+  nurseId: string;
+  customerName: string;
+  rating: number;           // 1-5
+  tags: string[];           // 準時、細心、溝通清楚…
+  comment?: string;
+  at: string;
+}
+
+export type ComplaintStatus = "open" | "investigating" | "resolved";
+
+export const COMPLAINT_STATUS_LABEL: Record<ComplaintStatus, string> = {
+  open: "待處理", investigating: "調查中", resolved: "已結案",
+};
+
+/** 客訴案件 */
+export interface Complaint {
+  id: string;
+  caseId?: string;
+  nurseId?: string;
+  customerName: string;
+  category: string;         // 服務態度／專業能力／準時／溝通／收費／其他
+  detail: string;
+  status: ComplaintStatus;
+  at: string;
+  handledBy?: string;
+  resolution?: string;
+  resolvedAt?: string;
+}
+
+/** 護理師檔案延伸（證照、可服務時段、費率） */
+export interface NurseProfile {
+  nurseId: string;
+  licenseNo: string;
+  licenses: { name: string; no: string; expiresOn?: string }[];
+  yearsExp: number;
+  areas: string[];              // 可服務地區
+  availability: Record<string, ("day" | "night")[]>; // 週一..週日 → 可上班別
+  hourlyRate: number;
+  bio?: string;
+  employment: "僱傭" | "承攬";
+}

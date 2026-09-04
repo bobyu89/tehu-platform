@@ -4,6 +4,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { getDb } from "@/lib/db";
 import { ensureSeeded } from "@/lib/seed";
 import { useMounted } from "@/components/useMounted";
+import { countByLayer, responseStats } from "@/modules/alerts";
 
 // 報表分析（QI 品質指標，規劃書 07 冊 §3）：
 // 警報響應、給藥準時、照護達成、量測密度。這些數據是第三階段
@@ -30,20 +31,9 @@ function Content() {
     const todayIso = todayStart.toISOString();
 
     const alerts = (await db.alerts.toArray()).filter((a) => a.triggeredAt >= since7d);
-    const mins = (rows: typeof alerts) => {
-      const v = rows.filter((a) => a.claimedAt)
-        .map((a) => (new Date(a.claimedAt!).getTime() - new Date(a.triggeredAt).getTime()) / 60000);
-      return v.length > 0 ? { avg: v.reduce((x, y) => x + y, 0) / v.length, n: v.length } : null;
-    };
-    const redResp = mins(alerts.filter((a) => a.level === "red"));
-    const allResp = mins(alerts);
-
-    const byLayer: Record<string, { yellow: number; red: number }> = {};
-    for (const a of alerts) {
-      const key = a.layer === "C" ? "個人基準線" : a.layer === "B" ? "早期預警" : a.layer === "qualitative" ? "質性紅旗" : "絕對臨界值";
-      byLayer[key] = byLayer[key] ?? { yellow: 0, red: 0 };
-      byLayer[key][a.level] += 1;
-    }
+    const redResp = responseStats(alerts.filter((a) => a.level === "red"));
+    const allResp = responseStats(alerts);
+    const byLayer = countByLayer(alerts);
 
     const meds = await db.meds.toArray();
     const nowH = new Date().getHours();

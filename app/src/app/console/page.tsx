@@ -9,6 +9,8 @@ import { useMounted } from "@/components/useMounted";
 import type { AlertRow, ObsType } from "@/lib/types";
 import { OBS_LABEL } from "@/lib/types";
 import { computeNews2, type News2Result } from "@/lib/news2";
+import * as alertOps from "@/modules/alerts";
+import { layerLabel } from "@/modules/alerts";
 import { fmtDateTime, fmtTime } from "@/lib/digest";
 
 // 主控台總覽：一頁看全局。
@@ -80,8 +82,8 @@ function ConsoleContent() {
 
   const nameOf = (id: string) => cases?.find((c) => c.id === id)?.name ?? "";
   const nurseName = (id?: string) => nurses?.find((n) => n.id === id)?.name ?? "未指派";
-  const claim = (a: AlertRow) => db.alerts.update(a.id, { status: "claimed", claimedAt: new Date().toISOString() });
-  const close = (a: AlertRow) => db.alerts.update(a.id, { status: "closed" });
+  const claim = (a: AlertRow) => alertOps.claim(a.id);
+  const close = (a: AlertRow) => alertOps.close(a.id);
 
   const sortedCases = [...activeCases].sort((a, b) =>
     (perCase?.[b.id]?.news2.total ?? -1) - (perCase?.[a.id]?.news2.total ?? -1));
@@ -139,7 +141,7 @@ function ConsoleContent() {
                     　{a.summary}
                   </div>
                   <div className="t-micro num" style={{ letterSpacing: 0, fontWeight: 400 }}>
-                    {a.layer === "C" ? "個人基準線" : a.layer === "B" ? "早期預警" : a.layer === "qualitative" ? "質性紅旗" : "絕對臨界值"}
+                    {layerLabel(a.layer)}
                     　{fmtDateTime(a.triggeredAt)}
                     {a.claimedAt && `　已認領`}{a.handledNote && `　${a.handledNote}`}
                   </div>

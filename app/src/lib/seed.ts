@@ -1,5 +1,6 @@
 import { getDb } from "./db";
 import { EDU_UNITS } from "./edu-seed";
+import { COMPLAINTS, CUSTOMERS, NURSE_PROFILES, REQUESTS, REVIEWS } from "./portal-seed";
 import { CASES, MEDS, NURSES, SELF_ID } from "./cases-seed";
 import {
   EDU_PUSHES, SIGNED_DOCS, WOUNDS, WOUND_ASSESSMENTS,
@@ -217,7 +218,15 @@ function todayOpenAlerts(): AlertRow[] {
 
 const DAYS = 7;
 
-export async function ensureSeeded(): Promise<void> {
+// 單飛：多個頁面同時掛載只執行一次，避免併發 bulkAdd 撞鍵
+let inflight: Promise<void> | null = null;
+
+export function ensureSeeded(): Promise<void> {
+  if (!inflight) inflight = seedOnce().finally(() => { inflight = null; });
+  return inflight;
+}
+
+async function seedOnce(): Promise<void> {
   const db = getDb();
   const today = dayKey(0);
 
@@ -226,6 +235,8 @@ export async function ensureSeeded(): Promise<void> {
   await db.nurses.bulkPut(NURSES);
   await db.meds.bulkPut(MEDS);
   await db.eduUnits.bulkPut(EDU_UNITS);
+  await db.nurseProfiles.bulkPut(NURSE_PROFILES);
+  await db.customers.bulkPut(CUSTOMERS);
 
   // 歷史資料：首次全量，之後每天補缺的日子
   await db.transaction("rw",
@@ -262,6 +273,12 @@ export async function ensureSeeded(): Promise<void> {
   await db.woundAssessments.bulkPut(WOUND_ASSESSMENTS);
   await db.eduPushes.bulkPut(EDU_PUSHES);
   await db.signedDocs.bulkPut(SIGNED_DOCS);
+  await db.reviews.bulkPut(REVIEWS);
+  // 需求單與客訴為狀態機資料：只補不存在的，保留使用者操作
+  const reqIds = new Set((await db.requests.bulkGet(REQUESTS.map((r) => r.id))).filter(Boolean).map((r) => r!.id));
+  await db.requests.bulkAdd(REQUESTS.filter((r) => !reqIds.has(r.id)));
+  const cpIds = new Set((await db.complaints.bulkGet(COMPLAINTS.map((c) => c.id))).filter(Boolean).map((c) => c!.id));
+  await db.complaints.bulkAdd(COMPLAINTS.filter((c) => !cpIds.has(c.id)));
 
   // 今日班次：登入者兩班在手，另有兩班服務中與一張待派供派單流程展示
   const shifts: Shift[] = [

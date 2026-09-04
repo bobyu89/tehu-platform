@@ -1,12 +1,13 @@
 "use client";
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { CaretRight, Clock, MapPin, SignOut, Warning } from "@phosphor-icons/react";
 import { getDb } from "@/lib/db";
 import { ensureSeeded, resetDemo, SELF_ID } from "@/lib/seed";
 import { useMounted } from "@/components/useMounted";
-import type { Shift } from "@/lib/types";
+import { clockIn, clockOut, respond } from "@/modules/shifts";
 
 // 今日班次（桌面版）：左欄班次與派單回覆、右欄個案入口。
 
@@ -18,9 +19,19 @@ export default function ConsoleTodayPage() {
 
 function Content() {
   useEffect(() => { void ensureSeeded(); }, []);
+  // 同一頁面同時服務公司端與人員端：連結前綴依當前端決定
+  const base = usePathname().startsWith("/staff") ? "/staff" : "/console";
+  // 人員端只看自己的班次與個案；公司端看全局
+  const mine = base === "/staff";
   const db = getDb();
-  const shifts = useLiveQuery(() => db.shifts.orderBy("date").reverse().limit(6).toArray(), []);
-  const cases = useLiveQuery(() => db.cases.toArray(), []);
+  const shifts = useLiveQuery(
+    () => db.shifts.orderBy("date").reverse().filter((s) => !mine || s.nurseId === SELF_ID).limit(6).toArray(), [mine]);
+  const cases = useLiveQuery(async () => {
+    const all = await db.cases.toArray();
+    if (!mine) return all;
+    const ids = new Set((await db.shifts.filter((s) => s.nurseId === SELF_ID).toArray()).map((s) => s.caseId));
+    return all.filter((c) => ids.has(c.id));
+  }, [mine]);
   const openAlerts = useLiveQuery(() => db.alerts.where("status").equals("triggered").count(), []);
   const offers = useLiveQuery(async () => {
     const now = new Date().toISOString();
@@ -33,18 +44,6 @@ function Content() {
   const dateStr = new Date().toLocaleDateString("zh-TW", { month: "long", day: "numeric", weekday: "long" });
   const caseName = (id: string) => cases?.find((c) => c.id === id)?.name ?? "";
   const hhmm = (iso: string) => new Date(iso).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false });
-
-  async function clockIn(s: Shift) {
-    const stamp = new Date().toISOString();
-    const save = (geo: Shift["clockInGeo"]) =>
-      db.shifts.update(s.id, { status: "in_progress", clockInAt: stamp, clockInGeo: geo });
-    if (!navigator.geolocation) { await save(null); return; }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => void save({ lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy }),
-      () => void save(null),
-      { timeout: 5000, maximumAge: 60000 },
-    );
-  }
 
   return (
     <div className="px-4 lg:px-6 py-5 flex flex-col gap-4 max-w-[1200px]">
@@ -73,9 +72,9 @@ function Content() {
                 <div className="t-sub num">{s.date.slice(5).replace("-", "/")}　{String(s.startHH).padStart(2, "0")}:00-{String(s.endHH).padStart(2, "0")}:00</div>
               </div>
               <div className="p-2.5 flex gap-2" style={{ borderTop: "1px solid var(--hairline)" }}>
-                <button className="btn btn-primary flex-1" onClick={() => db.shifts.update(s.id, { status: "accepted" })}>接受</button>
+                <button className="btn btn-primary flex-1" onClick={() => void respond(s.id, true)}>接受</button>
                 <button className="btn btn-quiet flex-1"
-                        onClick={() => db.shifts.update(s.id, { status: "unassigned", nurseId: undefined, offeredAt: undefined, respondBy: undefined })}>
+                        onClick={() => void respond(s.id, false)}>
                   拒絕
                 </button>
               </div>
@@ -106,20 +105,20 @@ function Content() {
                 </div>
                 <div className="flex gap-2">
                   {s.status === "accepted" && (
-                    <button className="btn btn-primary" onClick={() => clockIn(s)}>
+                    <button className="btn btn-primary" onClick={() => void clockIn(s.id)}>
                       <MapPin size={17} weight="fill" /> 定位打卡上班
                     </button>
                   )}
                   {s.status === "in_progress" && (
                     <>
-                      <Link href={`/console/case?id=${s.caseId}`} className="btn btn-primary">進入照護工作區</Link>
-                      <button className="btn btn-quiet" onClick={() => db.shifts.update(s.id, { status: "completed", clockOutAt: new Date().toISOString() })}>
+                      <Link href={`${base}/case?id=${s.caseId}`} className="btn btn-primary">進入照護工作區</Link>
+                      <button className="btn btn-quiet" onClick={() => void clockOut(s.id)}>
                         <SignOut size={17} /> 下班打卡
                       </button>
                     </>
                   )}
                   {s.status === "completed" && (
-                    <Link href={`/console/case?id=${s.caseId}`} className="btn btn-quiet">填寫交班</Link>
+                    <Link href={`${base}/case?id=${s.caseId}`} className="btn btn-quiet">填寫交班</Link>
                   )}
                 </div>
                 {s.clockInAt && (
@@ -137,7 +136,7 @@ function Content() {
         <section className="sheet">
           <div className="sheet-title"><span className="t-micro">我的個案</span></div>
           {(cases ?? []).map((c) => (
-            <Link key={c.id} href={`/console/case?id=${c.id}`} className="row stripe stripe-ok" style={{ display: "flex" }}>
+            <Link key={c.id} href={`${base}/case?id=${c.id}`} className="row stripe stripe-ok" style={{ display: "flex" }}>
               <div className="flex-1 min-w-0">
                 <div className="t-row">{c.name}<span className="t-sub font-normal">　{c.age} 歲・{c.setting}</span></div>
                 <div className="t-sub truncate">{c.dx}</div>

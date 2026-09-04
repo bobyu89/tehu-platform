@@ -1,5 +1,6 @@
 "use client";
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { CaretRight, GearSix } from "@phosphor-icons/react";
@@ -28,6 +29,8 @@ export default function CaseWorkspacePage() {
 
 function Workspace() {
   useEffect(() => { void ensureSeeded(); }, []);
+  // 同一頁面同時服務公司端與人員端：連結前綴依當前端決定
+  const base = usePathname().startsWith("/staff") ? "/staff" : "/console";
   const caseId = useCaseId();
   const db = getDb();
   const cases = useLiveQuery(() => db.cases.toArray(), []);
@@ -63,7 +66,7 @@ function Workspace() {
         </header>
         <section className="sheet">
           {(cases ?? []).map((c) => (
-            <Link key={c.id} href={`/console/case?id=${c.id}`} className="row row-tap" style={{ display: "flex" }}>
+            <Link key={c.id} href={`${base}/case?id=${c.id}`} className="row row-tap" style={{ display: "flex" }}>
               <div className="flex-1 min-w-0">
                 <div className="t-row">{c.name}<span className="t-sub font-normal">　{c.age} 歲・{c.setting}</span></div>
                 <div className="t-sub truncate">{c.dx}</div>

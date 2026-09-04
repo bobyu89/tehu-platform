@@ -5,7 +5,7 @@ import { Check, DownloadSimple, MapPin, Warning, X } from "@phosphor-icons/react
 import { getDb } from "@/lib/db";
 import { ensureSeeded } from "@/lib/seed";
 import { useMounted } from "@/components/useMounted";
-import type { Shift } from "@/lib/types";
+import { hoursOf, isAnomaly, review, rollupByNurse } from "@/modules/shifts";
 import { fmtTime } from "@/lib/digest";
 
 // 出勤與工時（規格 04 冊 §1）：
@@ -16,13 +16,6 @@ export default function AttendancePage() {
   const mounted = useMounted();
   if (!mounted) return null;
   return <Content />;
-}
-
-const isAnomaly = (s: Shift) => Boolean(s.clockInAt) && !s.clockInGeo;
-
-/** 近 30 日的起算日（跨月時仍有意義，優於日曆月） */
-function since30Days(): string {
-  return new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10);
 }
 
 function Content() {
@@ -38,20 +31,7 @@ function Content() {
   const clocked = (shifts ?? []).filter((s) => s.clockInAt);
   const pending = clocked.filter((s) => isAnomaly(s) && !s.reviewStatus);
 
-  const hoursOf = (s: Shift) => {
-    if (!s.clockInAt || !s.clockOutAt) return null;
-    return (new Date(s.clockOutAt).getTime() - new Date(s.clockInAt).getTime()) / 3600_000;
-  };
-
-  // 近 30 日每位護理師的班數與時數（跨月時仍有意義，優於日曆月）
-  const since30 = since30Days();
-  const byNurse: Record<string, { shifts: number; hours: number }> = {};
-  for (const s of clocked.filter((x) => x.date >= since30)) {
-    const key = s.nurseId ?? "?";
-    byNurse[key] = byNurse[key] ?? { shifts: 0, hours: 0 };
-    byNurse[key].shifts += 1;
-    byNurse[key].hours += hoursOf(s) ?? 0;
-  }
+  const byNurse = rollupByNurse(clocked);
 
   function exportCsv() {
     const rows = [
@@ -107,11 +87,11 @@ function Content() {
                 <div className="t-micro" style={{ fontWeight: 400, letterSpacing: 0 }}>無定位訊號打卡（GPS 拒絕或收不到）</div>
               </div>
               <button className="btn btn-primary shrink-0" style={{ minHeight: 36, padding: "0 11px", fontSize: 13 }}
-                      onClick={() => db.shifts.update(s.id, { reviewStatus: "approved", reviewNote: "主管確認在場" })}>
+                      onClick={() => void review(s.id, true)}>
                 <Check size={14} weight="bold" /> 核可
               </button>
               <button className="btn btn-quiet shrink-0" style={{ minHeight: 36, padding: "0 11px", fontSize: 13 }}
-                      onClick={() => db.shifts.update(s.id, { reviewStatus: "rejected", reviewNote: "需補說明" })}>
+                      onClick={() => void review(s.id, false)}>
                 <X size={14} /> 退回
               </button>
             </div>

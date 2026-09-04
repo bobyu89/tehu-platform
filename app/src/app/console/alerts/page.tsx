@@ -6,16 +6,14 @@ import { getDb } from "@/lib/db";
 import { ensureSeeded } from "@/lib/seed";
 import { useMounted } from "@/components/useMounted";
 import type { AlertRow } from "@/lib/types";
+import * as alertOps from "@/modules/alerts";
+import { layerLabel } from "@/modules/alerts";
 import { fmtDateTime } from "@/lib/digest";
 
 // 警報中心：全量佇列＋篩選。生命週期 觸發→認領→處置→結案（規格 02 冊 §3.2）。
 
 type StatusFilter = "open" | "closed" | "all";
 type LevelFilter = "all" | "red" | "yellow";
-
-const LAYER_LABEL: Record<string, string> = {
-  A: "絕對臨界值", B: "早期預警", C: "個人基準線", qualitative: "質性紅旗",
-};
 
 export default function AlertsPage() {
   const mounted = useMounted();
@@ -40,8 +38,8 @@ function AlertsContent() {
   });
 
   const nameOf = (id: string) => cases?.find((c) => c.id === id)?.name ?? "";
-  const claim = (a: AlertRow) => db.alerts.update(a.id, { status: "claimed", claimedAt: new Date().toISOString() });
-  const close = (a: AlertRow) => db.alerts.update(a.id, { status: "closed" });
+  const claim = (a: AlertRow) => alertOps.claim(a.id);
+  const close = (a: AlertRow) => alertOps.close(a.id);
 
   return (
     <div className="px-4 lg:px-6 py-5 flex flex-col gap-4 max-w-[1000px]">
@@ -82,7 +80,7 @@ function AlertsContent() {
                 {nameOf(a.caseId)}　{a.summary}
               </div>
               <div className="t-micro num" style={{ letterSpacing: 0, fontWeight: 400 }}>
-                {LAYER_LABEL[a.layer]}　{fmtDateTime(a.triggeredAt)}
+                {layerLabel(a.layer)}　{fmtDateTime(a.triggeredAt)}
                 {a.claimedAt && `　認領 ${fmtDateTime(a.claimedAt)}`}
                 {a.handledNote && `　${a.handledNote}`}
               </div>
