@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { computeNews2, news2Alert } from "./news2";
 import type { CaseInfo, Observation, ObsType } from "./types";
 
-// 計分切點對照 RCP NEWS2（2017）評分表；警報分級對照規格 02 冊 §2.2。
+// 計分切點與臨床風險分級對照 RCP NEWS2（2017）；警報分級對照規格 02 冊 §2.2。
 
 const NOW = Date.parse("2026-10-21T12:00:00+08:00");
 const info = (extra: Partial<CaseInfo> = {}) => ({ id: "c1", ...extra }) as CaseInfo;
@@ -72,8 +72,14 @@ describe("SpO2 Scale 2（高碳酸血症風險個案）", () => {
     expect(score("血氧", set({ spo2: 96, onO2: false }), copd)).toBe(0);
   });
 
-  // RCP 規範用氧時 93–94 → 1、95–96 → 2、≥97 → 3；目前實作簡化為一律 2 分，待臨床確認後再補測試。
-  it.todo("≥93 且用氧：依 93–94／95–96／≥97 分為 1／2／3 分");
+  it.each([
+    [92, 0], [93, 1], [94, 1], [95, 2], [96, 2], [97, 3], [100, 3],
+  ])("用氧：%i → %i 分（過度氧療）", (spo2, s) => expect(score("血氧", set({ spo2, onO2: true }), copd)).toBe(s));
+
+  it("≤92 時用氧與否不影響 SpO2 分數", () => {
+    expect(score("血氧", set({ spo2: 85, onO2: true }), copd)).toBe(2);
+    expect(score("血氧", set({ spo2: 85, onO2: false }), copd)).toBe(2);
+  });
 });
 
 describe("NEWS2 參數完整性與時間窗", () => {
@@ -128,15 +134,34 @@ describe("NEWS2 警報分級（02 冊 §2.2）", () => {
   });
 });
 
-describe("NEWS2 風險分級顯示（band）", () => {
-  const band = (rows: Observation[]) => computeNews2(info(), rows, NOW).band;
-  it("0–4 分 → 低；5–6 分 → 中；≥7 → 高；單項 3 分 → 中", () => {
-    expect(band(set())).toBe("low");
-    expect(band(set({ rr: 22, spo2: 93, hr: 105 }))).toBe("medium");
-    expect(band(set({ rr: 22, spo2: 93, hr: 115, bt: 38.5 }))).toBe("high");
-    expect(band(set({ avpu: "V" }))).toBe("medium");
+describe("NEWS2 臨床風險分級（band，RCP 四級）", () => {
+  const r = (rows: Observation[]) => computeNews2(info(), rows, NOW);
+
+  it("0–4 分且無單項 3 分 → 低", () => {
+    expect(r(set()).band).toBe("low");
+    expect(r(set({ hr: 105, rr: 22 })).band).toBe("low"); // 3 分
   });
 
-  // 目前實作把「5–6 分且含單項 3 分」標為高；RCP 為中（≥7 才高），警報分級也只發黃。待臨床確認後再補測試。
-  it.todo("5–6 分且含單項 3 分的 band 應為中或高");
+  it("任一單項 3 分且總分 < 5 → 低–中", () => {
+    expect(r(set({ avpu: "V" }))).toMatchObject({ total: 3, band: "low-medium", bandLabel: "低–中" });
+  });
+
+  it("5–6 分 → 中（含單項 3 分者亦同）", () => {
+    expect(r(set({ rr: 22, spo2: 93, hr: 105 })).band).toBe("medium");                 // 2 + 2 + 1
+    expect(r(set({ rr: 25, spo2: 94, hr: 95 }))).toMatchObject({ total: 5, singleThree: true, band: "medium" }); // 3 + 1 + 1
+    expect(r(set({ avpu: "V", rr: 22, hr: 95 }))).toMatchObject({ total: 6, singleThree: true, band: "medium" }); // 3 + 2 + 1
+  });
+
+  it("≥7 → 高", () => {
+    expect(r(set({ rr: 22, spo2: 93, hr: 115, bt: 38.5 }))).toMatchObject({ total: 7, band: "high", bandLabel: "高" });
+  });
+
+  it("顯示分級與警報分級一致：中與低–中發黃、高發紅", () => {
+    for (const [rows, level] of [
+      [set({ avpu: "V" }), "yellow"], [set({ rr: 25, spo2: 94, hr: 95 }), "yellow"],
+      [set({ rr: 22, spo2: 93, hr: 115, bt: 38.5 }), "red"], [set(), null],
+    ] as const) {
+      expect(news2Alert(r(rows))?.level ?? null).toBe(level);
+    }
+  });
 });

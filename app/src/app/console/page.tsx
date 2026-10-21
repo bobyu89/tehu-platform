@@ -210,7 +210,7 @@ function ConsoleContent() {
                     )}
                   </div>
                   {n && (
-                    <span className={`tag num shrink-0 ${n.complete && n.band === "high" ? "tag-critical" : n.complete && n.band === "medium" ? "tag-caution" : ""}`}>
+                    <span className={`tag num shrink-0 ${n.complete && n.band === "high" ? "tag-critical" : n.complete && (n.band === "medium" || n.band === "low-medium") ? "tag-caution" : ""}`}>
                       NEWS2 {n.complete ? `${n.total}・${n.bandLabel}` : "資料不全"}
                     </span>
                   )}

@@ -90,7 +90,7 @@ function Workspace() {
             <span className="t-sub">{info.age} 歲・{info.sex}</span>
             <span className="tag">{info.setting}</span>
             {news2 && (
-              <span className={`tag num ${news2.complete && news2.band === "high" ? "tag-critical" : news2.complete && news2.band === "medium" ? "tag-caution" : ""}`}>
+              <span className={`tag num ${news2.complete && news2.band === "high" ? "tag-critical" : news2.complete && (news2.band === "medium" || news2.band === "low-medium") ? "tag-caution" : ""}`}>
                 NEWS2 {news2.complete ? `${news2.total}・${news2.bandLabel}` : "資料不全"}
                 {info.news2AlertsOff ? "（警報停用）" : ""}
               </span>

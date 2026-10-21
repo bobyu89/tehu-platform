@@ -11,11 +11,15 @@ export interface News2Result {
   missing: string[];          // 缺少的參數名
   singleThree: boolean;       // 任一單項 3 分
   parts: { label: string; score: number }[];
-  band: "low" | "medium" | "high";
+  band: "low" | "low-medium" | "medium" | "high";
   bandLabel: string;
 }
 
-const WINDOW_MS = 12 * 3600_000; // 參數取 12 小時內最近一筆
+const WINDOW_MS = 12 * 3600_000;
+
+const BAND_LABEL: Record<News2Result["band"], string> = {
+  low: "低", "low-medium": "低–中", medium: "中", high: "高",
+}; // 參數取 12 小時內最近一筆
 
 function latestWithin(obs: Observation[], type: ObsType, now: number): Observation | undefined {
   let best: Observation | undefined;
@@ -29,9 +33,10 @@ function latestWithin(obs: Observation[], type: ObsType, now: number): Observati
 
 const scoreRR = (v: number) => (v <= 8 ? 3 : v <= 11 ? 1 : v <= 20 ? 0 : v <= 24 ? 2 : 3);
 const scoreSpo2Scale1 = (v: number) => (v <= 91 ? 3 : v <= 93 ? 2 : v <= 95 ? 1 : 0);
-// Scale 2（簡化）：88-92 為目標區 0 分；≥93 且用氧提示過度氧療給 2 分
+// Scale 2（RCP NEWS2）：88–92 為目標區 0 分；≥93 室內空氣 0 分，
+// 用氧時 93–94／95–96／≥97 依過度氧療程度給 1／2／3 分
 const scoreSpo2Scale2 = (v: number, onO2: boolean) =>
-  v <= 83 ? 3 : v <= 85 ? 2 : v <= 87 ? 1 : v <= 92 ? 0 : onO2 ? 2 : 0;
+  v <= 83 ? 3 : v <= 85 ? 2 : v <= 87 ? 1 : v <= 92 || !onO2 ? 0 : v <= 94 ? 1 : v <= 96 ? 2 : 3;
 const scoreTemp = (v: number) => (v <= 35 ? 3 : v <= 36 ? 1 : v <= 38 ? 0 : v <= 39 ? 1 : 2);
 const scoreSBP = (v: number) => (v <= 90 ? 3 : v <= 100 ? 2 : v <= 110 ? 1 : v <= 219 ? 0 : 3);
 const scoreHR = (v: number) => (v <= 40 ? 3 : v <= 50 ? 1 : v <= 90 ? 0 : v <= 110 ? 1 : v <= 130 ? 2 : 3);
@@ -73,15 +78,16 @@ export function computeNews2(info: CaseInfo, obs: Observation[], nowMs?: number)
   add("意識", conScore);
 
   const total = parts.reduce((a, p) => a + p.score, 0);
-  const band: News2Result["band"] = total >= 7 || (total >= 5 && singleThree) ? "high"
-    : total >= 5 || singleThree ? "medium" : "low";
+  // 臨床風險分級（RCP NEWS2）：≥7 高；5–6 中；任一單項 3 分 低–中；0–4 低
+  const band: News2Result["band"] = total >= 7 ? "high"
+    : total >= 5 ? "medium" : singleThree ? "low-medium" : "low";
 
   return {
     total, parts, missing,
     complete: missing.length === 0,
     singleThree,
     band,
-    bandLabel: band === "high" ? "高" : band === "medium" ? "中" : "低",
+    bandLabel: BAND_LABEL[band],
   };
 }
 
