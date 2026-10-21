@@ -84,3 +84,16 @@ export function computeNews2(info: CaseInfo, obs: Observation[], nowMs?: number)
     bandLabel: band === "high" ? "高" : band === "medium" ? "中" : "低",
   };
 }
+
+/**
+ * B 層警報分級（規格 02 冊 §2.2）：總分 ≥7 → 紅；5–6 分或任一單項 3 分 → 黃。
+ * 參數不全不發；個案停用警報（news2AlertsOff）時只計分不發。
+ */
+export function news2Alert(r: News2Result, alertsOff = false): { level: "red" | "yellow"; summary: string } | null {
+  if (alertsOff || !r.complete) return null;
+  if (r.total >= 7) return { level: "red", summary: `NEWS2 總分 ${r.total} 分（≥7，建議緊急評估）` };
+  if (r.total >= 5 || r.singleThree) {
+    return { level: "yellow", summary: `NEWS2 總分 ${r.total} 分${r.singleThree ? "（含單項 3 分）" : ""}，建議提高觀察頻率` };
+  }
+  return null;
+}

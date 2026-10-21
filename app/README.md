@@ -15,11 +15,12 @@ Windows 可雙擊專案根目錄的 `啟動特護平台.cmd`。
 
 ## 送出前檢查
 
-目前沒有自動化測試，請手動執行：
+CI（`.github/workflows/ci.yml`）會在 PR 上跑同樣四項：
 
 ```bash
-npx tsc --noEmit   # 型別檢查
+npm run typecheck  # 型別檢查
 npm run lint       # ESLint
+npm test           # 單元測試（Vitest）
 npm run build      # 靜態輸出到 out/
 ```
 
@@ -34,6 +35,7 @@ npm run build      # 靜態輸出到 out/
 ## 開發規則摘要
 
 - 寫入資料一律經 `src/modules/*`，頁面不直接操作 Dexie 表。
-- `src/lib/alert-engine.ts`、`src/lib/news2.ts` 為純函式，不碰資料庫。
+- `src/lib/alert-engine.ts`、`src/lib/news2.ts` 為純函式，不碰資料庫；判定邏輯都寫成純函式並附 `*.test.ts`。
+- 測試期望值依規格與 Guideline，不從程式常數抄寫。
 - 修改 Dexie schema 要在 `src/lib/db.ts` 新增 `version(n)`，不要改舊版本。
 - 部署：push 到 `master` 會觸發 GitHub Pages workflow。

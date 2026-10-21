@@ -3,7 +3,7 @@ import type {
   AlertRow, CareEvent, CaseInfo, MedLog, Observation, ObsType, Wound, WoundAssessment,
 } from "@/lib/types";
 import { evaluateObs, computeBaseline, baselineFlag, type BaselineFlag } from "@/lib/alert-engine";
-import { computeNews2, type News2Result } from "@/lib/news2";
+import { computeNews2, news2Alert, type News2Result } from "@/lib/news2";
 
 /**
  * care 模組：床邊照護紀錄（量測、輸出入量、照護事件、給藥、傷口）。
@@ -68,21 +68,8 @@ export async function recordVitals(info: CaseInfo, entries: VitalsEntry[]): Prom
   const recent = await db.observations.where("caseId").equals(caseId)
     .filter((o) => o.measuredAt >= twelveHoursAgo).toArray();
   const news2 = computeNews2(info, [...recent, ...obsRows]);
-  if (!info.news2AlertsOff && news2.complete) {
-    if (news2.total >= 7) {
-      alertRows.push({
-        id: uid(), caseId, layer: "B", level: "red",
-        summary: `NEWS2 總分 ${news2.total} 分（≥7，建議緊急評估）`,
-        status: "triggered", triggeredAt: now,
-      });
-    } else if (news2.total >= 5 || news2.singleThree) {
-      alertRows.push({
-        id: uid(), caseId, layer: "B", level: "yellow",
-        summary: `NEWS2 總分 ${news2.total} 分${news2.singleThree ? "（含單項 3 分）" : ""}，建議提高觀察頻率`,
-        status: "triggered", triggeredAt: now,
-      });
-    }
-  }
+  const b = news2Alert(news2, info.news2AlertsOff);
+  if (b) alertRows.push({ id: uid(), caseId, layer: "B", level: b.level, summary: b.summary, status: "triggered", triggeredAt: now });
 
   await db.transaction("rw", [db.observations, db.alerts], async () => {
     await db.observations.bulkPut(obsRows);
