@@ -7,7 +7,7 @@ import { getDb } from "@/lib/db";
 import { ensureSeeded } from "@/lib/seed";
 import { useMounted } from "@/components/useMounted";
 import type { Shift } from "@/lib/types";
-import { CASE_STATUS_LABEL } from "@/lib/types";
+import { CASE_STATUS_LABEL, SHIFT_STATUS_LABEL } from "@/lib/types";
 import * as shiftOps from "@/modules/shifts";
 import { isOfferExpired } from "@/modules/shifts";
 import * as caseOps from "@/modules/cases";
@@ -74,7 +74,8 @@ function DispatchContent() {
       case "offered": return <span className="tag">已派待回覆</span>;
       case "accepted": return <span className="tag tag-accent">已接</span>;
       case "in_progress": return <span className="tag tag-accent">服務中</span>;
-      case "completed": return <span className="tag">已完成</span>;
+      case "completed": case "verified": case "settled":
+        return <span className="tag">{SHIFT_STATUS_LABEL[s.status]}</span>;
     }
   };
 

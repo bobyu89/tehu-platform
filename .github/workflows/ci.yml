@@ -1,6 +1,6 @@
 name: CI
 
-# PR 與 master：型別檢查、lint、單元測試、建置。部署另見 deploy-pages.yml。
+# PR 與 master：型別檢查、lint、單元測試、建置；資料庫 migrations 依序套用到 Postgres 16。部署另見 deploy-pages.yml。
 on:
   pull_request:
   push:
@@ -31,3 +31,28 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+
+  migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply migrations in order
+        run: |
+          psql -v ON_ERROR_STOP=1 -q -f supabase/test/auth_stub.sql
+          for f in supabase/migrations/*.sql; do
+            echo "::group::$f"
+            psql -v ON_ERROR_STOP=1 -q -f "$f"
+            echo "::endgroup::"
+          done

@@ -7,7 +7,8 @@ import { CaretRight, Clock, MapPin, SignOut, Warning } from "@phosphor-icons/rea
 import { getDb } from "@/lib/db";
 import { ensureSeeded, resetDemo, SELF_ID } from "@/lib/seed";
 import { useMounted } from "@/components/useMounted";
-import { clockIn, clockOut, respond } from "@/modules/shifts";
+import { clockIn, clockOut, isFinished, respond } from "@/modules/shifts";
+import { SHIFT_STATUS_LABEL } from "@/lib/types";
 
 // 今日班次（桌面版）：左欄班次與派單回覆、右欄個案入口。
 
@@ -99,7 +100,7 @@ function Content() {
                   </div>
                   {s.status === "accepted" && <span className="tag">已接班</span>}
                   {s.status === "in_progress" && <span className="tag tag-accent">服務中</span>}
-                  {s.status === "completed" && <span className="tag">已完成</span>}
+                  {isFinished(s) && <span className="tag">{SHIFT_STATUS_LABEL[s.status]}</span>}
                   {s.status === "offered" && <span className="tag tag-caution">待回覆</span>}
                   {s.status === "unassigned" && <span className="tag tag-caution">待派</span>}
                 </div>
@@ -117,7 +118,7 @@ function Content() {
                       </button>
                     </>
                   )}
-                  {s.status === "completed" && (
+                  {isFinished(s) && (
                     <Link href={`${base}/case?id=${s.caseId}`} className="btn btn-quiet">填寫交班</Link>
                   )}
                 </div>

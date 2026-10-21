@@ -8,6 +8,10 @@ import type { CaseInfo, Nurse, Shift } from "@/lib/types";
 
 export type { Shift };
 
+/** 已下班的班次：完成、核對、結算都算（工時與收入計入） */
+export const isFinished = (s: Shift): boolean =>
+  s.status === "completed" || s.status === "verified" || s.status === "settled";
+
 /** 實際工時（小時）；未完成打卡回 null */
 export function hoursOf(s: Shift): number | null {
   if (!s.clockInAt || !s.clockOutAt) return null;

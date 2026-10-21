@@ -1,6 +1,6 @@
 import { getDb } from "@/lib/db";
 import type { AlertRow, Handoff, MedLog, NurseProfile, Review, Shift } from "@/lib/types";
-import { hoursOf } from "@/modules/shifts";
+import { hoursOf, isFinished } from "@/modules/shifts";
 import { ratingOf } from "@/modules/customers";
 
 /**
@@ -34,7 +34,7 @@ export function incomeOf(shifts: Shift[], nurseId: string, hourlyRate: number, d
 } {
   const since = new Date(Date.now() - days * 86400_000).toISOString().slice(0, 10);
   const rows = shifts
-    .filter((s) => s.nurseId === nurseId && s.status === "completed" && hoursOf(s) != null && s.date >= since)
+    .filter((s) => s.nurseId === nurseId && isFinished(s) && hoursOf(s) != null && s.date >= since)
     .sort((a, b) => b.date.localeCompare(a.date))
     .map((shift) => { const hours = hoursOf(shift)!; return { shift, hours, pay: Math.round(hours * hourlyRate) }; });
   return {

@@ -7,7 +7,8 @@ import { getDb } from "@/lib/db";
 import { ensureSeeded } from "@/lib/seed";
 import { useMounted } from "@/components/useMounted";
 import type { AlertRow, ObsType } from "@/lib/types";
-import { OBS_LABEL } from "@/lib/types";
+import { OBS_LABEL, SHIFT_STATUS_LABEL } from "@/lib/types";
+import { isFinished } from "@/modules/shifts";
 import { computeNews2, type News2Result } from "@/lib/news2";
 import * as alertOps from "@/modules/alerts";
 import { layerLabel } from "@/modules/alerts";
@@ -237,7 +238,7 @@ function ConsoleContent() {
                 </div>
                 {s.status === "in_progress" && <span className="tag tag-accent">服務中</span>}
                 {s.status === "accepted" && <span className="tag">已接班</span>}
-                {s.status === "completed" && <span className="tag"><Check size={11} weight="bold" /> 完成</span>}
+                {isFinished(s) && <span className="tag"><Check size={11} weight="bold" /> {s.status === "completed" ? "完成" : SHIFT_STATUS_LABEL[s.status]}</span>}
                 {s.status === "offered" && <span className="tag tag-caution">待回覆</span>}
                 {s.status === "unassigned" && <span className="tag tag-caution">待派</span>}
               </div>
