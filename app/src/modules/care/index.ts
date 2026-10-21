@@ -2,7 +2,9 @@ import { getDb, uid } from "@/lib/db";
 import type {
   AlertRow, CareEvent, CaseInfo, MedLog, Observation, ObsType, Wound, WoundAssessment,
 } from "@/lib/types";
-import { evaluateObs, computeBaseline, baselineFlag, type BaselineFlag } from "@/lib/alert-engine";
+import {
+  URINE_RULE, evaluateObs, evaluateUrine, computeBaseline, baselineFlag, type BaselineFlag,
+} from "@/lib/alert-engine";
 import { computeNews2, news2Alert, type News2Result } from "@/lib/news2";
 
 /**
@@ -79,7 +81,7 @@ export async function recordVitals(info: CaseInfo, entries: VitalsEntry[]): Prom
   return { obsRows, alertRows, hints, news2 };
 }
 
-/** 輸出入量（02 冊 §1.2）；質性紅旗由呼叫端依性狀另行觸發 */
+/** 輸出入量（02 冊 §1.2）；質性紅旗由呼叫端依性狀另行觸發。記尿量後立即重判尿量規則 */
 export async function recordIo(
   caseId: string, type: ObsType, category: "io_in" | "io_out", value: Observation["value"],
 ): Promise<void> {
@@ -87,6 +89,47 @@ export async function recordIo(
   await getDb().observations.put({
     id: uid(), caseId, type, category, value, measuredAt: now, recordedAt: now, source: "manual",
   });
+  if (type === "output_urine") await checkUrineOutput(caseId);
+}
+
+/**
+ * 尿量規則（A 層，時間窗）：判定並寫入警報；回傳新寫入的警報或 null。
+ * 去重：同一個案在時間窗內已有同級或更高級的尿量警報（不論是否已結案）就不再發，避免每次掃描重複推播。
+ */
+export async function checkUrineOutput(caseId: string, nowMs = Date.now()): Promise<AlertRow | null> {
+  const db = getDb();
+  // 取 24 小時再往前一個紅色時間窗，讓「監測是否已滿時間窗」判得出來
+  const lookback = new Date(nowMs - (URINE_RULE.activeWithinH + URINE_RULE.redAnuriaH) * 3600_000).toISOString();
+  const urine = await db.observations.where("[caseId+type]").equals([caseId, "output_urine"])
+    .filter((o) => o.measuredAt >= lookback).toArray();
+
+  const r = evaluateUrine(urine, nowMs);
+  if (!r) return null;
+
+  const windowH = r.level === "red" ? URINE_RULE.redAnuriaH : URINE_RULE.yellowWindowH;
+  const recentFrom = new Date(nowMs - windowH * 3600_000).toISOString();
+  const dup = await db.alerts.where("caseId").equals(caseId)
+    .filter((a) => a.rule === "urine_shift" && a.triggeredAt >= recentFrom && (a.level === "red" || a.level === r.level))
+    .count();
+  if (dup > 0) return null;
+
+  const row: AlertRow = {
+    id: uid(), caseId, layer: "A", level: r.level, summary: r.summary, rule: "urine_shift",
+    status: "triggered", triggeredAt: new Date(nowMs).toISOString(),
+  };
+  await db.alerts.put(row);
+  return row;
+}
+
+/** 掃描所有服務中個案的尿量規則（離線原型替代 pg_cron 每分鐘掃描，05 冊 §2） */
+export async function scanUrineOutput(nowMs = Date.now()): Promise<AlertRow[]> {
+  const cases = await getDb().cases.filter((c) => (c.status ?? "active") === "active").toArray();
+  const out: AlertRow[] = [];
+  for (const c of cases) {
+    const a = await checkUrineOutput(c.id, nowMs);
+    if (a) out.push(a);
+  }
+  return out;
 }
 
 /** 照護事件：翻身、抽痰、管路勾檢與事件、緊急徵象 */

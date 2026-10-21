@@ -5,6 +5,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { CaretRight, Check, Siren, Warning, WarningOctagon } from "@phosphor-icons/react";
 import { getDb } from "@/lib/db";
 import { ensureSeeded } from "@/lib/seed";
+import { scanUrineOutput } from "@/modules/care";
 import { useMounted } from "@/components/useMounted";
 import type { AlertRow, ObsType } from "@/lib/types";
 import { OBS_LABEL, SHIFT_STATUS_LABEL } from "@/lib/types";
@@ -30,7 +31,12 @@ export default function ConsolePage() {
 }
 
 function ConsoleContent() {
-  useEffect(() => { void ensureSeeded(); }, []);
+  // 時間窗規則（尿量）沒有輸入事件可觸發：示範資料補完後掃一次，之後每 5 分鐘掃描（正式版由 pg_cron 負責）
+  useEffect(() => {
+    void ensureSeeded().then(() => scanUrineOutput());
+    const t = setInterval(() => { void scanUrineOutput(); }, 5 * 60_000);
+    return () => clearInterval(t);
+  }, []);
   const db = getDb();
   const today = dstr(new Date());
 

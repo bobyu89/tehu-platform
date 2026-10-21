@@ -49,6 +49,7 @@ export interface AlertRow {
   triggeredAt: string;
   claimedAt?: string;
   handledNote?: string;
+  rule?: "urine_shift";   // 時間窗規則代碼（對應 SQL alerts.rule_id），供去重
 }
 
 export interface CaseInfo {

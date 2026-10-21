@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  QUALITATIVE_RED_FLAGS, baselineFlag, computeBaseline, evaluateObs,
+  QUALITATIVE_RED_FLAGS, baselineFlag, computeBaseline, evaluateObs, evaluateUrine,
 } from "./alert-engine";
 import type { ObsType } from "./types";
 
@@ -127,5 +127,60 @@ describe("C 層：個人基準線（02 冊 §2.3）", () => {
         expect(f?.level ?? null).not.toBe("red");
       }
     }
+  });
+});
+
+describe("A 層：尿量（02 冊 §2.1：8 小時 < 240 ml 黃、12 小時無尿紅）", () => {
+  const NOW = Date.parse("2026-10-21T12:00:00Z");
+  /** [幾小時前, ml]；ml 為 null 表示有解尿但未量 */
+  const u = (...rows: [number, number | null][]) =>
+    rows.map(([h, ml]) => ({ measuredAt: new Date(NOW - h * 3600_000).toISOString(), value: { main: ml } }));
+  const lvl = (rows: ReturnType<typeof u>) => evaluateUrine(rows, NOW)?.level ?? null;
+
+  it("q6h 正常尿量 → 不觸發", () => {
+    expect(lvl(u([20, 300], [14, 300], [8, 300], [2, 300]))).toBeNull();
+  });
+
+  it("近 8 小時合計 < 240 → 黃；= 240 不觸發", () => {
+    expect(lvl(u([14, 300], [7, 100], [2, 100]))).toBe("yellow");   // 200
+    expect(lvl(u([14, 300], [7, 120], [2, 120]))).toBeNull();       // 240
+    expect(evaluateUrine(u([14, 300], [7, 100], [2, 100]), NOW)?.summary).toContain("200 ml");
+  });
+
+  it("近 8 小時沒有紀錄（但 12 小時內有尿）→ 黃，並註明期間無紀錄", () => {
+    const r = evaluateUrine(u([20, 300], [10, 300]), NOW);
+    expect(r?.level).toBe("yellow");
+    expect(r?.summary).toContain("無紀錄");
+  });
+
+  it("12 小時內沒有任何解尿 → 紅", () => {
+    expect(lvl(u([20, 300], [13, 300]))).toBe("red");
+  });
+
+  it("無尿時間窗邊界：最後解尿 12.5 小時前 → 紅；11.5 小時前 → 不紅", () => {
+    expect(lvl(u([20, 300], [12.5, 300]))).toBe("red");
+    expect(lvl(u([20, 300], [11.5, 300]))).toBe("yellow"); // 8 小時窗內無紀錄，只到黃
+  });
+
+  it("12 小時內只有 0 ml 紀錄仍算無尿 → 紅", () => {
+    expect(lvl(u([20, 300], [13, 300], [6, 0], [1, 0]))).toBe("red");
+  });
+
+  it("有解尿但未量：證明有尿 → 不紅；量不可知 → 不黃", () => {
+    expect(lvl(u([20, 300], [13, 300], [3, null]))).toBeNull();
+  });
+
+  it("沒有在記錄尿量的個案（24 小時內無紀錄）→ 不判定", () => {
+    expect(lvl([])).toBeNull();
+    expect(lvl(u([30, 300], [26, 300]))).toBeNull();
+  });
+
+  it("監測未滿時間窗不判：剛開始記錄的個案不因資料少而觸發", () => {
+    expect(lvl(u([3, 50]))).toBeNull();          // 開始記錄才 3 小時
+    expect(lvl(u([10, 50], [3, 50]))).toBe("yellow"); // 已滿 8 小時、未滿 12 小時：只判黃
+  });
+
+  it("未來時間的紀錄不計入", () => {
+    expect(lvl(u([20, 300], [13, 300], [-1, 500]))).toBe("red");
   });
 });

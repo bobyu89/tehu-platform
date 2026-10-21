@@ -6,6 +6,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { CaretRight, GearSix } from "@phosphor-icons/react";
 import { getDb } from "@/lib/db";
 import { ensureSeeded } from "@/lib/seed";
+import { checkUrineOutput } from "@/modules/care";
 import { useMounted } from "@/components/useMounted";
 import { useCaseId } from "@/components/useCaseId";
 import type { ObsType } from "@/lib/types";
@@ -28,10 +29,10 @@ export default function CaseWorkspacePage() {
 }
 
 function Workspace() {
-  useEffect(() => { void ensureSeeded(); }, []);
   // 同一頁面同時服務公司端與人員端：連結前綴依當前端決定
   const base = usePathname().startsWith("/staff") ? "/staff" : "/console";
   const caseId = useCaseId();
+  useEffect(() => { void ensureSeeded().then(() => caseId ? checkUrineOutput(caseId) : null); }, [caseId]);
   const db = getDb();
   const cases = useLiveQuery(() => db.cases.toArray(), []);
   const info = cases?.find((c) => c.id === caseId);

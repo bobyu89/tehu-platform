@@ -132,7 +132,9 @@ function genDay(daysAgo: number, maxHour?: number): Observation[] {
 
     const urine = p.urine;
     if (urine) {
-      [10, 16, 22].forEach((hh, i) => {
+      // q6h 記錄（含凌晨）：任一 8 小時窗至少一筆，不會讓尿量規則誤判夜間無尿。
+      // 04 時放最後，既有 ID（ur-0..2 對應 10/16/22 時）不變，已存的示範資料不會重複
+      [10, 16, 22, 4].forEach((hh, i) => {
         if (maxHour != null && hh > maxHour) return;
         out.push(obs(p.caseId, "output_urine", "io_out",
           { main: Math.round(urine[0] + rnd() * urine[1]), color: rnd() > 0.8 ? "深黃" : "淡黃" },
