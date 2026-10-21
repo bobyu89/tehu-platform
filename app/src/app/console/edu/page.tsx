@@ -2,10 +2,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { BookOpenText, FilmSlate, ImageSquare, MagnifyingGlass, PaperPlaneTilt, SpeakerHigh, Warning } from "@phosphor-icons/react";
-import { getDb, uid } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { ensureSeeded } from "@/lib/seed";
 import { useMounted } from "@/components/useMounted";
 import type { EduUnit } from "@/lib/types";
+import { recordPush } from "@/modules/edu";
 import { fmtDateTime } from "@/lib/digest";
 
 // 衛教管理（規劃書 08 冊）：中文衛教知識庫的查詢、檢視與推送。
@@ -51,7 +52,7 @@ function Content() {
   const sel = (units ?? []).find((u) => u.id === selId) ?? list[0];
 
   async function push(unit: EduUnit, caseId: string) {
-    await db.eduPushes.put({ id: uid(), unitId: unit.id, caseId, at: new Date().toISOString() });
+    await recordPush(unit.id, caseId);
     setPushFor(null);
     setFlash(`已加入推送紀錄：${unit.id}`);
     setTimeout(() => setFlash(null), 2000);

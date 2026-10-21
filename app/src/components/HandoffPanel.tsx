@@ -2,8 +2,10 @@
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Check, Plus, Sparkle, Trash, Warning, WarningOctagon, ArchiveBoxIcon as ArchiveBox } from "@phosphor-icons/react";
-import { getDb, uid } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import type { Handoff } from "@/lib/types";
+import * as handoffs from "@/modules/handoffs";
+import { CHECK_ITEMS } from "@/modules/handoffs";
 import { OBS_LABEL, OBS_UNIT } from "@/lib/types";
 import { buildDigest, draftSummary, fmtDateTime } from "@/lib/digest";
 import { round1 } from "@/lib/alert-engine";
@@ -13,13 +15,6 @@ import { round1 } from "@/lib/alert-engine";
 // 示範模式：同一裝置先後扮演交班者與接班者。
 
 const S_OPTIONS = ["發燒", "呼吸喘", "疼痛", "意識改變", "血糖異常", "跌倒", "管路事件", "進食差", "無特殊"];
-
-const CHECK_ITEMS = [
-  "管路已逐條核對",
-  "藥品已清點無誤",
-  "病人當下狀態已確認",
-  "特殊物品已交接",
-];
 
 export function HandoffPanel({ caseId }: { caseId: string }) {
   const db = getDb();
@@ -91,10 +86,9 @@ function HandoffForm({ caseId, draft, onSubmitted }: { caseId: string; draft?: H
   }
 
   async function submit() {
-    await db.handoffs.put({
-      id: draft?.id ?? uid(), caseId, shiftId: "today",
+    await handoffs.submit({
+      id: draft?.id, caseId, shiftId: "today",
       sIssues, sNote, aNote, rTodos: todos, summaryDraft: summary,
-      status: "submitted", submittedAt: new Date().toISOString(),
       disputeNote: draft?.disputeNote, supplementNote: supplement || undefined,
     });
     onSubmitted();
@@ -236,21 +230,18 @@ function HandoffForm({ caseId, draft, onSubmitted }: { caseId: string; draft?: H
 /* ---------- 接班者：簽收 ---------- */
 
 function SignOffView({ h }: { h: Handoff }) {
-  const db = getDb();
   const [checks, setChecks] = useState<Record<string, boolean>>({});
   const [disputeText, setDisputeText] = useState("");
   const [showDispute, setShowDispute] = useState(false);
-  const allChecked = CHECK_ITEMS.every((c) => checks[c]);
+  const allChecked = handoffs.allChecked(checks);
 
   async function receive() {
-    await db.handoffs.update(h.id, {
-      status: "received", receivedAt: new Date().toISOString(), checklist: checks,
-    });
+    await handoffs.receive(h.id, checks);
   }
 
   async function dispute() {
     if (!disputeText.trim()) return;
-    await db.handoffs.update(h.id, { status: "draft", disputeNote: disputeText.trim() });
+    await handoffs.dispute(h.id, disputeText);
   }
 
   return (

@@ -2,8 +2,10 @@
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Check, Phone, WarningOctagon } from "@phosphor-icons/react";
-import { getDb, uid } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import type { CareEvent, MedLog, Observation, ObsType } from "@/lib/types";
+import * as care from "@/modules/care";
+import { raiseRedFlag } from "@/modules/alerts";
 import { WoundSection } from "@/components/WoundSection";
 import { fmtTime } from "@/lib/digest";
 
@@ -73,11 +75,7 @@ export function CareBoard({ caseId }: { caseId: string }) {
     .sort((a, b) => a.slot - b.slot);
 
   async function logMed(medId: string, slot: number, status: MedLog["status"], reason?: string) {
-    const date = todayStr();
-    await db.medLogs.put({
-      id: `${medId}|${date}|${slot}`, caseId, medId, date, slot, status, reason,
-      at: new Date().toISOString(),
-    });
+    await care.logMed(caseId, medId, todayStr(), slot, status, reason);
     setWithholdFor(null);
     toast(status === "given" ? "已記錄給藥" : `已記錄未給（${reason}）`);
   }
@@ -120,21 +118,17 @@ export function CareBoard({ caseId }: { caseId: string }) {
   }
 
   async function fireRedAlert(summary: string) {
-    await db.alerts.put({
-      id: uid(), caseId, layer: "qualitative", level: "red",
-      summary, status: "triggered", triggeredAt: new Date().toISOString(),
-    });
+    await raiseRedFlag(caseId, summary);
     setRedFired(summary);
   }
 
   async function quickEvent(type: CareEvent["type"], label: string, detail?: Record<string, unknown>) {
-    await db.events.put({ id: uid(), caseId, type, label, detail, occurredAt: new Date().toISOString() });
+    await care.logEvent(caseId, type, label, detail);
     toast(`已記錄：${label}`);
   }
 
   async function saveIo() {
     const t = IO_TYPES.find((x) => x.key === io)!;
-    const now = new Date().toISOString();
     const value: Observation["value"] = {
       main: t.ml && ml.trim() !== "" ? parseFloat(ml) : null,
       ...(amount ? { amount } : {}),
@@ -143,10 +137,7 @@ export function CareBoard({ caseId }: { caseId: string }) {
     };
     if (value.main == null && !amount && !quality) return;
 
-    await db.observations.put({
-      id: uid(), caseId, type: t.obs, category: t.dir === "in" ? "io_in" : "io_out",
-      value, measuredAt: now, recordedAt: now, source: "manual",
-    });
+    await care.recordIo(caseId, t.obs, t.dir === "in" ? "io_in" : "io_out", value);
 
     // 質性紅旗（規格 02 冊 §2.1）：直通紅色，不經數值
     if (io === "vomit" && quality === "咖啡渣樣") {

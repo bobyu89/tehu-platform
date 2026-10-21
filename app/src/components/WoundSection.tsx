@@ -2,8 +2,9 @@
 import { useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Camera, Plus, X } from "@phosphor-icons/react";
-import { getDb, uid } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { WOUND_STAGES, type Wound } from "@/lib/types";
+import { addWound as createWound, assessWound } from "@/modules/care";
 import { fmtDateTime } from "@/lib/digest";
 
 // 傷口／壓傷紀錄（規格 02 冊 §1.3）：人形圖點選部位、拍照、分期、描述。
@@ -65,21 +66,16 @@ export function WoundSection({ caseId }: { caseId: string }) {
   }, [caseId]);
 
   async function addWound(site: (typeof SITES)[number]) {
-    const w: Wound = {
-      id: uid(), caseId, site: site.code, siteLabel: site.label,
-      identifiedOn: new Date().toISOString(),
-    };
-    await db.wounds.put(w);
+    const w = await createWound(caseId, site);
     setPicking(false);
     setAssessFor(w); // 建立後直接進第一次評估
   }
 
   async function saveAssessment() {
     if (!assessFor || !stage) return;
-    await db.woundAssessments.put({
-      id: uid(), woundId: assessFor.id, caseId, stage,
+    await assessWound({
+      woundId: assessFor.id, caseId, stage,
       note: note.trim() || undefined, photo: photo ?? undefined,
-      at: new Date().toISOString(),
     });
     setAssessFor(null); setStage(null); setNote(""); setPhoto(null);
   }

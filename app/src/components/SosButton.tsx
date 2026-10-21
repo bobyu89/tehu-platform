@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Siren, Phone, ShieldCheck, X } from "@phosphor-icons/react";
-import { getDb, uid } from "@/lib/db";
 import type { SosIncident } from "@/lib/types";
+import * as sos from "@/modules/sos";
 
 // 緊急求助（規格 04 冊 §3）：長按 2 秒啟動，10 秒倒數可取消。
 // 示範模式僅寫入本地事件；正式版同時推播 LINE 值班群、簡訊與語音輪撥。
@@ -61,16 +61,12 @@ export function SosButton() {
   function cancelAll() { stopCd(); stopHold(); setPhase("idle"); }
 
   async function fire() {
-    await getDb().sos.put({ id: uid(), kind, silent: false, triggeredAt: new Date().toISOString() });
+    await sos.trigger(kind);
     setPhase("sent");
   }
 
   async function resolve() {
-    const db = getDb();
-    const all = await db.sos.toArray();
-    const last = all.reduce<SosIncident | undefined>(
-      (acc, r) => (!acc || r.triggeredAt > acc.triggeredAt ? r : acc), undefined);
-    if (last && !last.resolvedAt) await db.sos.update(last.id, { resolvedAt: new Date().toISOString() });
+    await sos.resolveLatest();
     cancelAll();
   }
 

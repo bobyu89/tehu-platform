@@ -280,14 +280,15 @@ async function seedOnce(): Promise<void> {
   const cpIds = new Set((await db.complaints.bulkGet(COMPLAINTS.map((c) => c.id))).filter(Boolean).map((c) => c!.id));
   await db.complaints.bulkAdd(COMPLAINTS.filter((c) => !cpIds.has(c.id)));
 
-  // 今日班次：登入者兩班在手，另有兩班服務中與一張待派供派單流程展示
+  // 今日班次：登入者兩班在手，另有兩班服務中與一張待派供派單流程展示。
+  // 待派的 case-chang 需安寧照護，只有吳佩珊符合，故今日不排她其他日班（輪班間隔硬條件）
   const shifts: Shift[] = [
     { id: `shift-case-wang-${today}`, caseId: "case-wang", date: today, startHH: 8, endHH: 20, status: "accepted", nurseId: SELF_ID },
     // 夜班另派他人：同一人不連值日夜（勞基法輪班間隔）
     { id: `shift-case-lee-${today}`, caseId: "case-lee", date: today, startHH: 20, endHH: 8, status: "accepted", nurseId: "nurse-tsai" },
     {
       id: `shift-case-chen-${today}`, caseId: "case-chen", date: today, startHH: 8, endHH: 20,
-      status: "in_progress", nurseId: "nurse-wu",
+      status: "in_progress", nurseId: "nurse-chang",
       clockInAt: isoAt(0, 7, 52), clockInGeo: { lat: 25.0421, lng: 121.5198, acc: 14 },
     },
     {

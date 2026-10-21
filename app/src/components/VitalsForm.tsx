@@ -2,10 +2,12 @@
 import { useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Check, Warning, WarningOctagon, Phone, TrendUp, TrendDown } from "@phosphor-icons/react";
-import { getDb, uid } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import type { AlertRow, CaseInfo, Observation, ObsType } from "@/lib/types";
-import { evaluateObs, computeBaseline, baselineFlag, type BaselineFlag } from "@/lib/alert-engine";
-import { computeNews2, type News2Result } from "@/lib/news2";
+import type { BaselineFlag } from "@/lib/alert-engine";
+import type { News2Result } from "@/lib/news2";
+import { recordVitals, type VitalsEntry } from "@/modules/care";
+import { noteHandled } from "@/modules/alerts";
 import { fmtDateTime } from "@/lib/digest";
 
 // 量測輸入（規格 02 冊 §4）：三秒原則、大鍵位、自動跳欄、
@@ -79,14 +81,9 @@ export function VitalsForm({ info, inline = false }: { info: CaseInfo; inline?: 
 
   async function submit() {
     setSaving(true);
-    const now = new Date().toISOString();
-    const db = getDb();
-    const obsRows: Observation[] = [];
-    const alertRows: AlertRow[] = [];
-    const hints: BaselineFlag[] = [];
     const num = (k: NumKey) => (vals[k].trim() === "" ? null : parseFloat(vals[k]));
 
-    const entries: { type: ObsType; value: Observation["value"] }[] = [];
+    const entries: VitalsEntry[] = [];
     if (num("bt") != null) entries.push({ type: "bt", value: { main: num("bt"), site: "耳" } });
     if (num("hr") != null) entries.push({ type: "hr", value: { main: num("hr"), rhythm: "規則" } });
     if (num("rr") != null) entries.push({ type: "rr", value: { main: num("rr") } });
@@ -97,67 +94,7 @@ export function VitalsForm({ info, inline = false }: { info: CaseInfo; inline?: 
     if (pain != null) entries.push({ type: "pain", value: { main: pain } });
     entries.push({ type: "consciousness", value: { main: null, avpu: AVPU[avpu].code, newConfusion: confusion } });
 
-    const sevenDaysAgo = new Date(Date.now() - 7 * 86400_000).toISOString();
-
-    for (const e of entries) {
-      const row: Observation = {
-        id: uid(), caseId, type: e.type, category: "vital", value: e.value,
-        measuredAt: now, recordedAt: now, source: "manual",
-      };
-      obsRows.push(row);
-
-      const r = evaluateObs(e.type, e.value, info.overrides);
-      if (r.level) {
-        alertRows.push({
-          id: uid(), caseId, obsId: row.id, layer: r.layer, level: r.level,
-          summary: r.summary, status: "triggered", triggeredAt: now,
-        });
-      }
-
-      if (typeof e.value.main === "number" && e.type !== "pain") {
-        const history = await db.observations
-          .where("[caseId+type]").equals([caseId, e.type])
-          .filter((o) => o.measuredAt >= sevenDaysAgo && typeof o.value.main === "number")
-          .toArray();
-        const base = computeBaseline(e.type, history.map((o) => o.value.main as number));
-        const flag = baselineFlag(e.type, e.value.main, base);
-        if (flag) {
-          hints.push(flag);
-          if (flag.level === "yellow") {
-            alertRows.push({
-              id: uid(), caseId, obsId: row.id, layer: "C", level: "yellow",
-              summary: flag.text, status: "triggered", triggeredAt: now,
-            });
-          }
-        }
-      }
-    }
-
-    // B 層：NEWS2（規格 02 冊 §2.2）。近 12 小時參數＋本次輸入合併計分。
-    const twelveHoursAgo = new Date(Date.now() - 12 * 3600_000).toISOString();
-    const recent = await db.observations.where("caseId").equals(caseId)
-      .filter((o) => o.measuredAt >= twelveHoursAgo).toArray();
-    const news2 = computeNews2(info, [...recent, ...obsRows]);
-    if (!info.news2AlertsOff && news2.complete) {
-      if (news2.total >= 7) {
-        alertRows.push({
-          id: uid(), caseId, layer: "B", level: "red",
-          summary: `NEWS2 總分 ${news2.total} 分（≥7，建議緊急評估）`,
-          status: "triggered", triggeredAt: now,
-        });
-      } else if (news2.total >= 5 || news2.singleThree) {
-        alertRows.push({
-          id: uid(), caseId, layer: "B", level: "yellow",
-          summary: `NEWS2 總分 ${news2.total} 分${news2.singleThree ? "（含單項 3 分）" : ""}，建議提高觀察頻率`,
-          status: "triggered", triggeredAt: now,
-        });
-      }
-    }
-
-    await db.transaction("rw", [db.observations, db.alerts], async () => {
-      await db.observations.bulkPut(obsRows);
-      if (alertRows.length > 0) await db.alerts.bulkPut(alertRows);
-    });
+    const { obsRows, alertRows, hints, news2 } = await recordVitals(info, entries);
 
     setResult({
       reds: alertRows.filter((a) => a.level === "red"),
@@ -301,8 +238,7 @@ function ResultOverlay({ r, onClose }: { r: Result; onClose: () => void }) {
 
   async function confirmHandled() {
     if (note) {
-      const db = getDb();
-      for (const a of [...r.reds, ...r.yellows]) await db.alerts.update(a.id, { handledNote: note });
+      for (const a of [...r.reds, ...r.yellows]) await noteHandled(a.id, note);
     }
     onClose();
   }

@@ -3,22 +3,20 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { CaretLeft, Plus, UserPlus, X } from "@phosphor-icons/react";
-import { getDb, uid } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { ensureSeeded } from "@/lib/seed";
 import { useMounted } from "@/components/useMounted";
-import type { CaseInfo, CaseStatus, Shift } from "@/lib/types";
+import type { Shift } from "@/lib/types";
 import { CASE_STATUS_LABEL } from "@/lib/types";
 import * as shiftOps from "@/modules/shifts";
 import { isOfferExpired } from "@/modules/shifts";
+import * as caseOps from "@/modules/cases";
+import { NEXT_STATUS } from "@/modules/cases";
 import { fmtTime } from "@/lib/digest";
 
 // 派單（規格 04 冊 §2）：個案建檔、狀態機、班次指派。
-// 技術標籤是硬條件：個案需求必須是護理師標籤的子集，不符者不可指派。
+// 硬條件（技術標籤、輪班間隔）由 shifts.assignBlockers 判定，畫面與 assign() 共用。
 // MVP 為人工指派＋系統輔助排序；自動派單留到第三階段。
-
-const NEXT_STATUS: Partial<Record<CaseStatus, CaseStatus>> = {
-  inquiry: "assessing", assessing: "quoted", quoted: "active",
-};
 
 const NEED_OPTIONS = ["管灌", "血糖監測", "氧療照護", "抽痰", "傷口照護", "失智照護"];
 
@@ -41,28 +39,26 @@ function DispatchContent() {
     const rows = await db.shifts.orderBy("date").reverse().limit(30).toArray();
     return rows.sort((a, b) => a.date === b.date ? a.startHH - b.startHH : b.date.localeCompare(a.date));
   }, []);
+  // 輪班間隔檢查需要護理師在前後日的全部班次，不受上方列表筆數限制
+  const allShifts = useLiveQuery(() => db.shifts.toArray(), []);
 
   const [showNew, setShowNew] = useState(false);
   const [assignFor, setAssignFor] = useState<Shift | null>(null);
-
-  async function advanceStatus(c: CaseInfo) {
-    const next = NEXT_STATUS[c.status ?? "active"];
-    if (next) await db.cases.update(c.id, { status: next });
-  }
+  const [assignError, setAssignError] = useState<string | null>(null);
 
   async function addShift(caseId: string, slot: "day" | "night") {
     const t = new Date(); t.setDate(t.getDate() + 1);
-    const date = dstr(t);
-    await db.shifts.put({
-      id: `shift-${caseId}-${date}-${slot}`, caseId, date,
-      startHH: slot === "day" ? 8 : 20, endHH: slot === "day" ? 20 : 8,
-      status: "unassigned",
-    });
+    await shiftOps.createShift(caseId, dstr(t), slot);
   }
 
   async function assign(shift: Shift, nurseId: string) {
-    await shiftOps.assign(shift.id, nurseId);
-    setAssignFor(null);
+    try {
+      await shiftOps.assign(shift.id, nurseId);
+      setAssignFor(null);
+      setAssignError(null);
+    } catch (e) {
+      setAssignError(e instanceof Error ? e.message : String(e));
+    }
   }
 
   const recall = (shift: Shift) => shiftOps.recall(shift.id);
@@ -87,7 +83,7 @@ function DispatchContent() {
       <header className="flex items-start justify-between gap-3">
         <div>
           <h1 className="t-head">個案與派單</h1>
-          <p className="t-sub">人工指派＋系統輔助；技術標籤不符者不可指派（硬條件）。</p>
+          <p className="t-sub">人工指派＋系統輔助；技術標籤不符、或與該護理師其他班次間隔不足 11 小時者不可指派（硬條件）。</p>
         </div>
         <Link href="/console" className="t-label flex items-center gap-0.5 shrink-0" style={{ color: "var(--a-ink)" }}>
           <CaretLeft size={15} /> 總覽
@@ -118,7 +114,7 @@ function DispatchContent() {
                 <span className={`tag ${st === "active" ? "tag-accent" : ""}`}>{CASE_STATUS_LABEL[st]}</span>
                 {NEXT_STATUS[st] && (
                   <button className="btn btn-quiet" style={{ minHeight: 34, padding: "0 10px", fontSize: 13 }}
-                          onClick={() => advanceStatus(c)}>
+                          onClick={() => caseOps.advance(c)}>
                     推進至{CASE_STATUS_LABEL[NEXT_STATUS[st]!]}
                   </button>
                 )}
@@ -169,22 +165,24 @@ function DispatchContent() {
 
       {assignFor && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3"
-             style={{ background: "rgba(20,28,27,.45)" }} onClick={() => setAssignFor(null)}>
+             style={{ background: "rgba(20,28,27,.45)" }} onClick={() => { setAssignFor(null); setAssignError(null); }}>
           <div className="sheet enter w-full max-w-md" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-title">
               <span className="t-micro">指派護理師</span>
               <span className="t-micro">{caseOf(assignFor.caseId)?.name}・需求 {caseOf(assignFor.caseId)?.careNeeds.join("、")}</span>
             </div>
+            {assignError && (
+              <div className="row stripe stripe-caution t-sub" style={{ color: "var(--caution)" }}>{assignError}</div>
+            )}
             {(nurses ?? []).map((n) => {
-              const needs = caseOf(assignFor.caseId)?.careNeeds ?? [];
-              const ok = needs.every((x) => n.tags.includes(x));
-              const missing = needs.filter((x) => !n.tags.includes(x));
+              const blockers = shiftOps.assignBlockers(assignFor, caseOf(assignFor.caseId), n, allShifts ?? []);
+              const ok = blockers.length === 0;
               return (
                 <div key={n.id} className="row">
                   <div className="flex-1 min-w-0">
                     <div className="t-label">{n.name}</div>
                     <div className="t-micro" style={{ fontWeight: 400, letterSpacing: 0 }}>
-                      {ok ? n.tags.join("、") : `缺技術標籤：${missing.join("、")}`}
+                      {ok ? n.tags.join("、") : blockers.join("；")}
                     </div>
                   </div>
                   <button className={ok ? "btn btn-primary" : "btn btn-quiet"}
@@ -214,11 +212,9 @@ function NewCaseForm({ onDone }: { onDone: () => void }) {
 
   async function save() {
     if (!name.trim()) return;
-    await getDb().cases.put({
-      id: `case-${uid().slice(0, 8)}`,
-      name: name.trim(), age: parseInt(age || "0", 10) || 0, sex: "女",
-      setting, dx: dx.trim() || "（待補診斷）", allergies: "未知",
-      careNeeds: needs, tubes: [], status: "inquiry", vitalsIntervalH: 4,
+    await caseOps.create({
+      name: name.trim(), age: parseInt(age || "0", 10) || 0,
+      setting, dx: dx.trim() || "（待補診斷）", careNeeds: needs,
     });
     onDone();
   }

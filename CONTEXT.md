@@ -35,8 +35,8 @@
 ## 不變量（違反即 bug）
 
 1. C 層永不產生紅色警報。
-2. 技術標籤是派單硬條件：個案需求 ⊆ 護理師標籤，否則不可指派。
-3. 同一護理師同一日不得連值日夜班（勞基法工時；示範資料亦不得違反）。
+2. 技術標籤是派單硬條件：個案需求 ⊆ 護理師標籤，否則不可指派（`shifts.assignBlockers`）。
+3. 同一護理師同一日不得連值日夜班（勞基法工時；示範資料亦不得違反）。實作為與其他班次間隔 ≥ 11 小時（ADR-002），同時擋下時段重疊（`shifts.assignBlockers`）。
 4. 未審核的衛教單元不得對外推送。
 5. 內外分離：客戶端不出現內部處置細節、交班備註、NEWS2 分數。
 6. 紀錄 append-only：更正以新版本表達，不覆蓋。
@@ -46,14 +46,20 @@
 
 ## 模組地圖（`app/src/modules/*`）
 
-每個模組只暴露 `index.ts`；頁面不得直接操作 Dexie 表，一律經模組介面。
+每個模組只暴露 `index.ts`；頁面不得直接寫入 Dexie 表，一律經模組介面（讀取可用 `useLiveQuery`）。
 
 | 模組 | 負責 | 主要介面 |
 |---|---|---|
-| `shifts` | 派單狀態機、打卡、出勤審核、工時 | `assign` `recall` `respond` `clockIn` `clockOut` `review` `hoursOf` `isAnomaly` |
-| `alerts` | 警報生命週期與統計 | `claim` `close` `layerLabel` `responseStats` |
+| `shifts` | 派單狀態機與硬條件、打卡、出勤審核、工時 | `createShift` `assignBlockers` `assign` `recall` `respond` `clockIn` `clockOut` `review` `hoursOf` `isAnomaly` |
+| `alerts` | 警報生命週期與統計、質性紅旗 | `raiseRedFlag` `claim` `close` `noteHandled` `layerLabel` `responseStats` |
+| `care` | 床邊照護紀錄：量測（寫入即三層判定）、輸出入量、事件、給藥、傷口 | `recordVitals` `recordIo` `logEvent` `logMed` `addWound` `assessWound` |
+| `handoffs` | ISBAR 交班狀態機與簽收勾稽 | `submit` `receive` `dispute` `CHECK_ITEMS` |
+| `cases` | 個案建檔與狀態機 | `create` `advance` `NEXT_STATUS` |
 | `customers` | 需求單、評價、客訴 | `submitRequest` `advanceRequest` `convertToCase` `addReview` `ratingOf` `openComplaint` `resolveComplaint` |
 | `staff` | 護理師檔案、時段、收入、績效 | `toggleAvailability` `incomeOf` `performanceOf` |
+| `sos` | 緊急求助事件 | `trigger` `resolveLatest` |
+| `edu` | 衛教推送紀錄與送出把關 | `recordPush` `canSend` |
+| `documents` | 電子簽章雜湊存證 | `sign` |
 
 判定引擎（`lib/alert-engine.ts`、`lib/news2.ts`）為純函式，不碰資料庫，維持現狀。
 

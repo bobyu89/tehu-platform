@@ -1,4 +1,4 @@
-import { getDb } from "@/lib/db";
+import { getDb, uid } from "@/lib/db";
 import type { AlertLayer, AlertRow } from "@/lib/types";
 
 /**
@@ -13,6 +13,14 @@ export const LAYER_LABEL: Record<AlertLayer, string> = {
 };
 
 export const layerLabel = (l: AlertLayer): string => LAYER_LABEL[l];
+
+/** 質性紅旗（02 冊 §2.1）：不經數值判斷，直通紅色警報 */
+export async function raiseRedFlag(caseId: string, summary: string): Promise<void> {
+  await getDb().alerts.put({
+    id: uid(), caseId, layer: "qualitative", level: "red",
+    summary, status: "triggered", triggeredAt: new Date().toISOString(),
+  });
+}
 
 export async function claim(alertId: string): Promise<void> {
   await getDb().alerts.update(alertId, { status: "claimed", claimedAt: new Date().toISOString() });
