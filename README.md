@@ -30,8 +30,8 @@
   - B 層：NEWS2，計分與分級對齊 RCP 2017
   - C 層：個人基準線，永不發紅色
 - 派單硬條件：技術標籤、輪班間隔 ≥ 11 小時（勞基法）
-- 目標資料庫 schema：`supabase/migrations/`，多租戶、append-only、RLS 骨架
-- 單元測試 119 項；CI 會跑型別檢查、lint、測試、建置，並套用 migrations
+- 目標資料庫 schema：`supabase/migrations/`，含多租戶隔離、append-only、依權限矩陣的 RLS（有自動化測試）
+- 單元測試 119 項；CI 會跑型別檢查、lint、測試、建置，並套用 migrations、執行 RLS 權限測試
 
 下一步與完整待辦見〈[10 技術文件：現況實作](10-技術文件-現況實作.md)〉§10。
 
