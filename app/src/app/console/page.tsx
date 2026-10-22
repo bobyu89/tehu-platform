@@ -5,9 +5,11 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { CaretRight, Check, Siren, Warning, WarningOctagon } from "@phosphor-icons/react";
 import { getDb } from "@/lib/db";
 import { ensureSeeded } from "@/lib/seed";
+import { scanUrineOutput } from "@/modules/care";
 import { useMounted } from "@/components/useMounted";
 import type { AlertRow, ObsType } from "@/lib/types";
-import { OBS_LABEL } from "@/lib/types";
+import { OBS_LABEL, SHIFT_STATUS_LABEL } from "@/lib/types";
+import { isFinished } from "@/modules/shifts";
 import { computeNews2, type News2Result } from "@/lib/news2";
 import * as alertOps from "@/modules/alerts";
 import { layerLabel } from "@/modules/alerts";
@@ -29,7 +31,12 @@ export default function ConsolePage() {
 }
 
 function ConsoleContent() {
-  useEffect(() => { void ensureSeeded(); }, []);
+  // 時間窗規則（尿量）沒有輸入事件可觸發：示範資料補完後掃一次，之後每 5 分鐘掃描（正式版由 pg_cron 負責）
+  useEffect(() => {
+    void ensureSeeded().then(() => scanUrineOutput());
+    const t = setInterval(() => { void scanUrineOutput(); }, 5 * 60_000);
+    return () => clearInterval(t);
+  }, []);
   const db = getDb();
   const today = dstr(new Date());
 
@@ -210,7 +217,7 @@ function ConsoleContent() {
                     )}
                   </div>
                   {n && (
-                    <span className={`tag num shrink-0 ${n.complete && n.band === "high" ? "tag-critical" : n.complete && n.band === "medium" ? "tag-caution" : ""}`}>
+                    <span className={`tag num shrink-0 ${n.complete && n.band === "high" ? "tag-critical" : n.complete && (n.band === "medium" || n.band === "low-medium") ? "tag-caution" : ""}`}>
                       NEWS2 {n.complete ? `${n.total}・${n.bandLabel}` : "資料不全"}
                     </span>
                   )}
@@ -237,7 +244,7 @@ function ConsoleContent() {
                 </div>
                 {s.status === "in_progress" && <span className="tag tag-accent">服務中</span>}
                 {s.status === "accepted" && <span className="tag">已接班</span>}
-                {s.status === "completed" && <span className="tag"><Check size={11} weight="bold" /> 完成</span>}
+                {isFinished(s) && <span className="tag"><Check size={11} weight="bold" /> {s.status === "completed" ? "完成" : SHIFT_STATUS_LABEL[s.status]}</span>}
                 {s.status === "offered" && <span className="tag tag-caution">待回覆</span>}
                 {s.status === "unassigned" && <span className="tag tag-caution">待派</span>}
               </div>

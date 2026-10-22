@@ -61,6 +61,47 @@ export function evaluateObs(type: ObsType, value: ObsValue, overrides?: RuleSet)
   return { level: null, layer: "A", summary: "" };
 }
 
+// ============================================================
+// A 層：尿量（02 冊 §2.1；SQL alert_rules 種子 urine_shift）
+// 黃：近 8 小時尿量 < 240 ml；紅：12 小時無尿。
+// 對照 KDIGO AKI：240 ml／8h ≈ 60 kg 成人 0.5 mL/kg/h（stage 1 門檻）；無尿 ≥ 12h 為 stage 3。
+// 判的是「一段時間內的量」，所以要區分「沒尿」與「沒記」：
+// - 只對正在記錄尿量的個案判定（近 24 小時內有尿量紀錄）
+// - 監測要滿整個時間窗才判，剛開始記錄的個案不會因為窗內資料少而觸發
+// - 有「解尿但未量」的紀錄（main 為 null）時，量不可知 → 不判黃；但證明有尿 → 不判紅
+// ============================================================
+
+export const URINE_RULE = { yellowMl: 240, yellowWindowH: 8, redAnuriaH: 12, activeWithinH: 24 } as const;
+
+export interface UrineObs { measuredAt: string; value: { main: number | null } }
+
+export function evaluateUrine(urine: UrineObs[], nowMs: number): { level: AlertLevel; summary: string } | null {
+  const H = 3600_000;
+  const t = (o: UrineObs) => new Date(o.measuredAt).getTime();
+  const past = urine.filter((o) => t(o) <= nowMs);
+  if (!past.some((o) => t(o) > nowMs - URINE_RULE.activeWithinH * H)) return null; // 未在記錄尿量
+  const since = Math.min(...past.map(t));
+
+  const red = nowMs - URINE_RULE.redAnuriaH * H;
+  const voided = (o: UrineObs) => o.value.main == null || o.value.main > 0;
+  if (since <= red && !past.some((o) => t(o) > red && voided(o))) {
+    return { level: "red", summary: `${URINE_RULE.redAnuriaH} 小時無尿` };
+  }
+
+  const yellow = nowMs - URINE_RULE.yellowWindowH * H;
+  const inWindow = past.filter((o) => t(o) > yellow);
+  if (since <= yellow && inWindow.every((o) => o.value.main != null)) {
+    const total = inWindow.reduce((a, o) => a + (o.value.main as number), 0);
+    if (total < URINE_RULE.yellowMl) {
+      return {
+        level: "yellow",
+        summary: `近 ${URINE_RULE.yellowWindowH} 小時尿量 ${total} ml（< ${URINE_RULE.yellowMl}${inWindow.length === 0 ? "，期間無紀錄" : ""}）`,
+      };
+    }
+  }
+  return null;
+}
+
 /** 質性紅旗（02 冊：直通紅色，不經數值） */
 export const QUALITATIVE_RED_FLAGS = [
   "咖啡渣樣嘔吐物",

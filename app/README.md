@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 特護平台 app
 
-## Getting Started
+Next.js 16 靜態輸出的離線示範原型。資料全部存在瀏覽器 IndexedDB（Dexie），尚未連接後端。
 
-First, run the development server:
+## 快速開始
+
+需求：Node.js 24。
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm ci
+npm run dev        # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Windows 可雙擊專案根目錄的 `啟動特護平台.cmd`。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 送出前檢查
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+CI（`.github/workflows/ci.yml`）會在 PR 上跑同樣四項：
 
-## Learn More
+```bash
+npm run typecheck  # 型別檢查
+npm run lint       # ESLint
+npm test           # 單元測試（Vitest）
+npm run build      # 靜態輸出到 out/
+```
 
-To learn more about Next.js, take a look at the following resources:
+## 必讀
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| 文件 | 內容 |
+|---|---|
+| [`../CONTEXT.md`](../CONTEXT.md) | 名詞、不變量、模組地圖——命名以此為準 |
+| [`../10-技術文件-現況實作.md`](../10-技術文件-現況實作.md) | 技術棧、路由、資料層、引擎參數、部署、待辦 |
+| [`AGENTS.md`](AGENTS.md) | 此版 Next.js 有破壞性變更，寫程式前先查 `node_modules/next/dist/docs/` |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 開發規則摘要
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- 寫入資料一律經 `src/modules/*`，頁面不直接操作 Dexie 表。
+- `src/lib/alert-engine.ts`、`src/lib/news2.ts` 為純函式，不碰資料庫；判定邏輯都寫成純函式並附 `*.test.ts`。
+- 測試期望值依規格與 Guideline，不從程式常數抄寫。
+- 修改 Dexie schema 要在 `src/lib/db.ts` 新增 `version(n)`，不要改舊版本。
+- 部署：push 到 `master` 會觸發 GitHub Pages workflow。

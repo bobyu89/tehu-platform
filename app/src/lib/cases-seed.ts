@@ -82,7 +82,7 @@ export const CASES: CaseInfo[] = [
 export const NURSES: Nurse[] = [
   { id: SELF_ID, name: "陳曉柔", tags: ["管灌", "血糖監測", "氧療照護", "抽痰", "傷口照護"] },
   { id: "nurse-lin", name: "林士弘", tags: ["氧療照護", "抽痰", "傷口照護", "呼吸器", "管灌"] },
-  { id: "nurse-chang", name: "張惠雯", tags: ["管灌", "失智照護", "血糖監測"] },
+  { id: "nurse-chang", name: "張惠雯", tags: ["管灌", "失智照護", "血糖監測", "傷口照護"] },
   { id: "nurse-wu", name: "吳佩珊", tags: ["傷口照護", "安寧照護", "管灌"] },
   { id: "nurse-tsai", name: "蔡明哲", tags: ["呼吸器", "抽痰", "氧療照護"] },
 ];

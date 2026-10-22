@@ -6,6 +6,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { CaretRight, GearSix } from "@phosphor-icons/react";
 import { getDb } from "@/lib/db";
 import { ensureSeeded } from "@/lib/seed";
+import { checkUrineOutput } from "@/modules/care";
 import { useMounted } from "@/components/useMounted";
 import { useCaseId } from "@/components/useCaseId";
 import type { ObsType } from "@/lib/types";
@@ -28,10 +29,10 @@ export default function CaseWorkspacePage() {
 }
 
 function Workspace() {
-  useEffect(() => { void ensureSeeded(); }, []);
   // 同一頁面同時服務公司端與人員端：連結前綴依當前端決定
   const base = usePathname().startsWith("/staff") ? "/staff" : "/console";
   const caseId = useCaseId();
+  useEffect(() => { void ensureSeeded().then(() => caseId ? checkUrineOutput(caseId) : null); }, [caseId]);
   const db = getDb();
   const cases = useLiveQuery(() => db.cases.toArray(), []);
   const info = cases?.find((c) => c.id === caseId);
@@ -90,7 +91,7 @@ function Workspace() {
             <span className="t-sub">{info.age} 歲・{info.sex}</span>
             <span className="tag">{info.setting}</span>
             {news2 && (
-              <span className={`tag num ${news2.complete && news2.band === "high" ? "tag-critical" : news2.complete && news2.band === "medium" ? "tag-caution" : ""}`}>
+              <span className={`tag num ${news2.complete && news2.band === "high" ? "tag-critical" : news2.complete && (news2.band === "medium" || news2.band === "low-medium") ? "tag-caution" : ""}`}>
                 NEWS2 {news2.complete ? `${news2.total}・${news2.bandLabel}` : "資料不全"}
                 {info.news2AlertsOff ? "（警報停用）" : ""}
               </span>

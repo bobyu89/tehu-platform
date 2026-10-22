@@ -49,6 +49,7 @@ export interface AlertRow {
   triggeredAt: string;
   claimedAt?: string;
   handledNote?: string;
+  rule?: "urine_shift";   // 時間窗規則代碼（對應 SQL alerts.rule_id），供去重
 }
 
 export interface CaseInfo {
@@ -82,8 +83,14 @@ export interface CareEvent {
   occurredAt: string;          // ISO
 }
 
+/** 對齊 SQL shift_status：完成後由主管核對出勤（verified），再結算（settled） */
 export type ShiftStatus =
-  | "unassigned" | "offered" | "accepted" | "in_progress" | "completed";
+  | "unassigned" | "offered" | "accepted" | "in_progress" | "completed" | "verified" | "settled";
+
+export const SHIFT_STATUS_LABEL: Record<ShiftStatus, string> = {
+  unassigned: "待派", offered: "待回覆", accepted: "已接班", in_progress: "服務中",
+  completed: "已完成", verified: "已核對", settled: "已結算",
+};
 
 export interface Shift {
   id: string;

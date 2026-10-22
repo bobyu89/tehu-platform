@@ -2,10 +2,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Check, Eraser, Signature } from "@phosphor-icons/react";
-import { getDb, uid } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { ensureSeeded } from "@/lib/seed";
 import { useMounted } from "@/components/useMounted";
 import { fmtDateTime } from "@/lib/digest";
+import { sign } from "@/modules/documents";
 
 // 電子簽章示範（規劃書 08 冊 §2）：
 // 模板 →「同意以電子方式簽署」勾選（相對人同意要件）→ 手寫簽名 →
@@ -95,16 +96,10 @@ function Content() {
   async function complete() {
     const cv = canvasRef.current!;
     const sig = cv.toDataURL("image/png");
-    const at = new Date().toISOString();
-    const payload = `${tpl.title}\n${tpl.body(caseName)}\n${signer}\n${at}\n${sig}`;
-    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(payload));
-    const sha256 = [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
-    await db.signedDocs.put({
-      id: uid(), kind: tpl.title, signerName: signer.trim(), caseId: "case-wang",
-      consentElectronic: consent, signedAt: at, sha256,
-      deviceInfo: navigator.userAgent.slice(0, 80), signatureDataUrl: sig,
-    });
-    setDone({ sha256, at });
+    setDone(await sign({
+      kind: tpl.title, content: tpl.body(caseName), signerName: signer, caseId: "case-wang",
+      consentElectronic: consent, signatureDataUrl: sig,
+    }));
   }
 
   function reset() {
