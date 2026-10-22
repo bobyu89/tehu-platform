@@ -1,6 +1,6 @@
 name: CI
 
-# PR 與 master：型別檢查、lint、單元測試、建置；資料庫 migrations 依序套用到 Postgres 16 並跑 RLS 權限測試。部署另見 deploy-pages.yml。
+# PR 與 master：型別檢查、lint、單元測試、建置；資料庫 migrations 依序套用到 Postgres 16，再跑 RLS 權限測試與同步契約測試。部署另見 deploy-pages.yml。
 on:
   pull_request:
   push:
@@ -58,3 +58,16 @@ jobs:
           done
       - name: RLS permission tests
         run: psql -v ON_ERROR_STOP=1 -q -o /dev/null -f supabase/test/rls.test.sql
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Sync contract test (mapped rows → Postgres with RLS)
+        working-directory: app
+        env:
+          SYNC_CONTRACT_PG: "1"
+          PGDATABASE: postgres
+        run: |
+          npm ci
+          npx vitest run src/lib/sync/contract.test.ts

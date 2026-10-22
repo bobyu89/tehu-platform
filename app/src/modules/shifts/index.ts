@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/db";
+import { enqueue } from "@/modules/sync";
 import type { CaseInfo, Nurse, Shift } from "@/lib/types";
 
 /**
@@ -107,8 +108,10 @@ export async function respond(shiftId: string, accept: boolean): Promise<void> {
 export async function clockIn(shiftId: string): Promise<void> {
   const db = getDb();
   const stamp = new Date().toISOString();
-  const save = (geo: Shift["clockInGeo"]) =>
-    db.shifts.update(shiftId, { status: "in_progress", clockInAt: stamp, clockInGeo: geo });
+  const save = (geo: Shift["clockInGeo"]) => db.transaction("rw", [db.shifts, db.outbox], async () => {
+    await db.shifts.update(shiftId, { status: "in_progress", clockInAt: stamp, clockInGeo: geo });
+    await enqueue({ entity: "attendance", data: { shiftId, kind: "in", at: stamp, geo } });
+  });
   if (typeof navigator === "undefined" || !navigator.geolocation) { await save(null); return; }
   await new Promise<void>((resolve) => {
     navigator.geolocation.getCurrentPosition(
@@ -120,7 +123,12 @@ export async function clockIn(shiftId: string): Promise<void> {
 }
 
 export async function clockOut(shiftId: string): Promise<void> {
-  await getDb().shifts.update(shiftId, { status: "completed", clockOutAt: new Date().toISOString() });
+  const db = getDb();
+  const stamp = new Date().toISOString();
+  await db.transaction("rw", [db.shifts, db.outbox], async () => {
+    await db.shifts.update(shiftId, { status: "completed", clockOutAt: stamp });
+    await enqueue({ entity: "attendance", data: { shiftId, kind: "out", at: stamp } });
+  });
 }
 
 /** 主管審核異常打卡 */
