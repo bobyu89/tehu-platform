@@ -1,0 +1,236 @@
+@import "tailwindcss";
+
+/* ============================================================
+   特護平台 設計系統
+   Brief：床邊臨床儀器。單手、戴手套、凌晨三點也要 3 秒讀懂。
+   旋鈕：變異度 3（安全關鍵介面不要驚喜）／動態 2（只留操作回饋）
+        ／密度 8（cockpit：細線、緊排版、數字等寬）
+   ============================================================ */
+
+:root {
+  /* 單一強調色：深松綠。臨床、沉穩，非 AI 紫、非米色黃銅組 */
+  --a: #0b6b60;
+  --a-ink: #085249;
+  --a-wash: #e7efed;
+  --a-line: #b9d3ce;
+  --on-a: #ffffff;        /* 強調色上的文字：淺色模式白字 6.4:1 */
+
+  /* 中性色偏強調色相（選過的灰，不是預設灰） */
+  --bg: #f4f6f5;
+  --surface: #ffffff;
+  --sunken: #eceff0;
+  --ink: #141c1b;         /* 非純黑 */
+  --ink-2: #475856;
+  --ink-3: #667776;       /* 對白底 4.70:1，微標籤仍達 WCAG AA */
+  --line: #dbe2e0;
+  --hairline: #e6ebea;
+
+  /* 語意狀態色：保留給狀態，永不當強調色用 */
+  --caution: #8a5a12;
+  --caution-bg: #fbf3e4;
+  --caution-line: #e6d3ae;
+  --critical: #a8322a;
+  --critical-bg: #fbeceb;
+  --critical-line: #ecc6c2;
+  --critical-solid: #a8322a;
+
+  /* 形狀鎖：全案單一圓角尺度（儀器感＝小圓角） */
+  --r: 5px;
+
+  --shadow: 0 1px 2px rgba(20, 28, 27, .06), 0 4px 12px rgba(20, 28, 27, .04);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --a: #4fbfb2;
+    --a-ink: #7ed6ca;
+    --a-wash: #16302d;
+    --a-line: #2f5b55;
+    --on-a: #06231f;        /* 深色模式強調色偏亮，改深字 7.4:1（白字僅 2.2:1） */
+
+    --bg: #0e1514;
+    --surface: #161f1e;
+    --sunken: #101817;
+    --ink: #e6ecea;         /* 非純白 */
+    --ink-2: #9fb0ad;
+    --ink-3: #7d8f8c;       /* 對深底 4.95:1 */
+    --line: #27332f;
+    --hairline: #202b29;
+
+    --caution: #e0a84b;
+    --caution-bg: #2a2114;
+    --caution-line: #4a3a1e;
+    --critical: #ec7264;
+    --critical-bg: #2c1917;
+    --critical-line: #50291f;
+    --critical-solid: #c2453a;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 12px rgba(0, 0, 0, .2);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  /* 繁中優先系統字：零下載、原生字形正確。刻意不用 Inter */
+  font-family: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 臨床數值一律等寬 + 表格數字，欄位才對得齊 */
+.num {
+  font-family: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* ---- 型階 ---- */
+.t-micro { font-size: 11px; letter-spacing: .06em; font-weight: 700; color: var(--ink-3); }
+.t-label { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.t-sub   { font-size: 13px; color: var(--ink-2); line-height: 1.6; }
+.t-row   { font-size: 17px; font-weight: 700; letter-spacing: -.01em; }
+.t-head  { font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
+.t-hero  { font-size: 34px; font-weight: 800; letter-spacing: -.03em; line-height: 1.1; }
+
+/* ---- 儀器面：不用浮卡堆疊，用單一面 + 細線分隔 ---- */
+.sheet {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+.sheet-title {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--sunken);
+}
+.row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--hairline);
+}
+.row:last-child { border-bottom: none; }
+.row-tap { width: 100%; text-align: left; background: none; border: none; cursor: pointer; color: inherit; font: inherit; }
+.row-tap:active { background: var(--sunken); }
+
+/* 嚴重度色條：狀態不只靠顏色，形也帶訊息 */
+.stripe { border-left: 3px solid transparent; }
+.stripe-critical { border-left-color: var(--critical); background: var(--critical-bg); }
+.stripe-caution  { border-left-color: var(--caution);  background: var(--caution-bg); }
+.stripe-ok       { border-left-color: var(--a); }
+
+/* ---- 控制項 ---- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 48px; padding: 0 16px;
+  border-radius: var(--r); border: 1px solid transparent;
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  user-select: none; -webkit-tap-highlight-color: transparent;
+  transition: transform .06s ease, background-color .12s ease, border-color .12s ease;
+}
+.btn:active { transform: translateY(1px) scale(.995); }
+.btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+.btn-primary { background: var(--a); color: var(--on-a); }
+.btn-primary:not(:disabled):hover { background: var(--a-ink); }
+.btn-quiet { background: var(--surface); color: var(--a-ink); border-color: var(--line); }
+.btn-quiet:not(:disabled):hover { border-color: var(--a-line); background: var(--a-wash); }
+.btn-critical { background: var(--critical-solid); color: #fff; }
+.btn-on-dark { background: #fff; color: var(--critical-solid); }
+
+:where(button, a, input, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--a);
+  outline-offset: 2px;
+  border-radius: var(--r);
+}
+
+/* 數值輸入：值大、標籤小，欄位本身退為底線 */
+.numfield {
+  width: 100%; min-height: 58px;
+  padding: 2px 10px;
+  border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--surface); color: var(--ink);
+  font-size: 26px; font-weight: 700;
+  font-family: ui-monospace, "SF Mono", "JetBrains Mono", Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.numfield::placeholder { color: var(--ink-3); font-weight: 400; }
+.numfield:focus { outline: 2px solid var(--a); outline-offset: 1px; border-color: var(--a); }
+
+.textfield {
+  width: 100%; padding: 11px 12px;
+  border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--surface); color: var(--ink);
+  font-size: 15px; font-family: inherit; line-height: 1.6;
+}
+.textfield:focus { outline: 2px solid var(--a); outline-offset: 1px; border-color: var(--a); }
+
+/* 選項鍵：床邊主要輸入方式（拇指區、48px+） */
+.opt {
+  min-height: 48px; padding: 0 12px;
+  border: 1px solid var(--line); border-radius: var(--r);
+  background: var(--surface); color: var(--ink);
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  transition: transform .06s ease, background-color .12s ease, border-color .12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.opt:active { transform: translateY(1px); }
+.opt[data-on="true"] { border-color: var(--a); background: var(--a-wash); color: var(--a-ink); box-shadow: inset 0 0 0 1px var(--a); }
+
+/* ---- 狀態標籤：形狀鎖一致，含圖示不只靠顏色 ---- */
+.tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 800; letter-spacing: .02em;
+  padding: 2px 7px; border-radius: 4px;
+  border: 1px solid var(--line); color: var(--ink-2); background: var(--surface);
+  white-space: nowrap;
+}
+.tag-accent   { border-color: var(--a-line); color: var(--a-ink); background: var(--a-wash); }
+.tag-caution  { border-color: var(--caution-line); color: var(--caution); background: var(--caution-bg); }
+.tag-critical { border-color: var(--critical-line); color: var(--critical); background: var(--critical-bg); }
+
+/* ---- 空狀態 ---- */
+.empty {
+  padding: 28px 16px; text-align: center;
+  color: var(--ink-3); font-size: 13px; line-height: 1.7;
+}
+
+/* ---- 載入骨架：形狀對齊最終版面 ---- */
+.skeleton {
+  background: linear-gradient(90deg, var(--sunken) 25%, var(--hairline) 50%, var(--sunken) 75%);
+  background-size: 200% 100%;
+  border-radius: 3px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton { animation: shimmer 1.4s linear infinite; }
+}
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+/* 警報進場：只在必要處、且尊重減量動態 */
+@media (prefers-reduced-motion: no-preference) {
+  .enter { animation: enter .18s ease-out; }
+}
+@keyframes enter { from { opacity: 0; transform: translateY(6px); } }
+
+.divider { height: 1px; background: var(--hairline); }
+
+/* ---- Landing 動畫（電影感 fade-rise 三段時差）---- */
+@keyframes fade-rise {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: none; }
+}
+.animate-fade-rise { animation: fade-rise .8s ease-out both; }
+.animate-fade-rise-delay { animation: fade-rise .8s ease-out .2s both; }
+.animate-fade-rise-delay-2 { animation: fade-rise .8s ease-out .4s both; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-rise, .animate-fade-rise-delay, .animate-fade-rise-delay-2 { animation: none; }
+}
