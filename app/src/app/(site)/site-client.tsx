@@ -1,13 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import s from "./landing.module.css";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import s from "./site.module.css";
 
-// Landing 的互動元件：進場動畫、展示區三段距離、功能區示範開關、住院天數試算。
-// 進場與 shutter 只在 html.js 下隱藏起始狀態（page.tsx 以 inline script 設定），沒有 JS 時全部直接可見。
+// 官網的互動元件：進場動畫、導覽、展示區三段距離、示範開關、排班試算。
+// 進場與 shutter 只在 html.js 下隱藏起始狀態（layout 以 inline script 設定），沒有 JS 時全部直接可見。
 
-/** 監看 [data-reveal] 與 [data-shutter]，進入視窗時加上 is-in */
+export type NavItem = { label: string; href: string };
+
+/** 監看 [data-reveal] 與 [data-shutter]，進入視窗時加上 is-in；換頁後重新監看新頁面的元素 */
 export function RevealObserver() {
+  const pathname = usePathname();
   useEffect(() => {
     const els = document.querySelectorAll<HTMLElement>("[data-reveal], [data-shutter]");
     if (!("IntersectionObserver" in window)) {
@@ -26,12 +31,28 @@ export function RevealObserver() {
     );
     els.forEach((el) => io.observe(el));
     return () => io.disconnect();
-  }, []);
+  }, [pathname]);
   return null;
 }
 
+/** 桌機導覽：目前頁面標 aria-current */
+export function NavLinks({ items }: { items: NavItem[] }) {
+  const pathname = usePathname();
+  return (
+    <nav className={s.navLinks} aria-label="主要導覽">
+      {items.map((n) => (
+        <Link key={n.href} href={n.href} className={s.link} aria-current={isCurrent(pathname, n.href) ? "page" : undefined}>
+          {n.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+const isCurrent = (pathname: string, href: string) => pathname.replace(/\/$/, "") === href.replace(/\/$/, "");
+
 /** 行動版選單：文字按鈕，展開為整頁清單 */
-export function MenuButton({ links, children }: { links: { label: string; href: string }[]; children?: React.ReactNode }) {
+export function MenuButton({ links }: { links: NavItem[] }) {
   const [open, setOpen] = useState(false);
   return (
     <div className={s.menu}>
@@ -40,9 +61,8 @@ export function MenuButton({ links, children }: { links: { label: string; href: 
       </button>
       <nav id="landing-menu" className={s.menuSheet} hidden={!open} aria-label="行動版導覽">
         {links.map((l) => (
-          <a key={l.href} href={l.href} onClick={() => setOpen(false)}>{l.label}</a>
+          <Link key={l.href} href={l.href} onClick={() => setOpen(false)}>{l.label}</Link>
         ))}
-        {children}
       </nav>
     </div>
   );
