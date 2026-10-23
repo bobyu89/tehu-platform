@@ -22,7 +22,7 @@
   --figure: clamp(120px, 19vw, 300px);
 
   --margin: clamp(16px, 2.2vw, 32px);
-  --gap: clamp(160px, 16vw, 240px);
+  --gap: clamp(160px, 13vw, 200px);
 
   --ease-out: cubic-bezier(.22, 1, .36, 1);
   --ease-in-out: cubic-bezier(.65, 0, .35, 1);
@@ -168,16 +168,60 @@
 .heroShot img { position: absolute; inset: 0; object-position: 0 0; }
 .heroBand { display: none; }
 
-/* ---------- 開場陳述 ---------- */
-.intro { padding: 22vh var(--margin); }
+/* ---------- 分流：家屬／護理師 ---------- */
+.forkSection { padding-top: var(--gap); }
+.forkSection > .sectionTitle { padding: 0 var(--margin) clamp(48px, 6vw, 96px); }
+.fork { display: grid; grid-template-columns: 1fr 1fr; }
+.forkCard {
+  --field: #dcede7;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(40px, 5vw, 80px) var(--margin) 0;
+  overflow: hidden;
+  background: var(--field);
+  color: var(--ink);
+  text-decoration: none;
+}
+.page .forkCard { color: var(--ink); }
+.page .forkCard[data-field="navy"] { --field: #123f46; color: var(--cream); }
+.forkTitle {
+  font-size: var(--head);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -.02em;
+}
+.forkCard p { max-width: 24em; margin-top: 20px; }
+.forkGo {
+  align-self: flex-start;
+  margin-top: 24px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: .08em;
+  text-underline-offset: .3em;
+}
+.forkShot {
+  aspect-ratio: 4 / 3;
+  margin-top: clamp(40px, 5vw, 72px);
+  overflow: hidden;
+  background: #fff;
+}
+.forkShot img { object-position: 0 0; transition: transform 700ms var(--ease-out); }
+@media (hover: hover) and (pointer: fine) {
+  .forkCard:hover .forkShot img { transform: translateY(-3%); }
+}
+.forkCard:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+
+/* ---------- 章節開場（給家屬／給護理師） ---------- */
+.chapter { padding: var(--gap) var(--margin) 0; }
 .statement {
   max-width: 64vw;
-  margin: 0 auto;
+  margin-top: 40px;
   font-size: var(--lead);
   font-weight: 500;
   line-height: 1.6;
-  text-align: center;
 }
+.chapterAction { margin-top: 48px; }
+.chapterBands { margin: clamp(64px, 8vw, 128px) calc(var(--margin) * -1) 0; }
 .thumb {
   display: inline-block;
   width: 1.4em;
@@ -242,7 +286,7 @@
 .markers > div { height: 70svh; }
 
 /* ---------- 功能：色帶 ---------- */
-.features { margin-top: clamp(64px, 8vw, 128px); }
+.features { margin-top: var(--gap); }
 .sectionTitle {
   font-size: var(--head);
   font-weight: 700;
@@ -409,7 +453,8 @@
   padding: 0 var(--margin);
   color: var(--muted);
 }
-.faqList { margin-top: 56px; }
+.faqGroup + .faqGroup { margin-top: clamp(96px, 10vw, 160px); }
+.faqList { margin-top: 48px; }
 .faqRow {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
@@ -435,6 +480,11 @@
 }
 .ctaTitle span { display: block; }
 .cta p { max-width: 30em; margin: 32px 0 40px; color: var(--cream-muted); }
+.ctaActions { display: flex; flex-wrap: wrap; gap: 16px; }
+.page .buttonQuiet { background: var(--cream); color: var(--ink); }
+@media (hover: hover) and (pointer: fine) {
+  .page .buttonQuiet:hover { background: #dcede7; }
+}
 
 /* ---------- 頁尾 ---------- */
 .footer {
@@ -473,7 +523,8 @@
   :global(.js) .page .shiftList li:nth-child(3) { transition-delay: 140ms; }
   :global(.js) .page .shiftList li:nth-child(4) { transition-delay: 210ms; }
   :global(.js) .page .cta p { transition-delay: 80ms; }
-  :global(.js) .page .cta .button { transition: opacity 700ms 160ms ease, transform 900ms 160ms var(--ease-out), background-color 200ms ease; }
+  :global(.js) .page .ctaActions { transition-delay: 160ms; }
+  :global(.js) .page .fork .forkCard:nth-child(2) { transition-delay: 90ms; }
 
   .figureNumber { animation: rise 420ms var(--ease-out) both; }
 }
@@ -495,6 +546,7 @@
   .horizon span { display: block; }
   .horizon span:first-child, .horizon span:last-child { text-align: center; }
   .statement { max-width: none; }
+  .fork { grid-template-columns: 1fr; }
   .bandText, .proof { grid-column: 1 / -1; }
   .proof { margin-top: 40px; }
   .shiftList { grid-template-columns: repeat(2, 1fr); }
@@ -522,8 +574,6 @@
     padding: 0 var(--margin);
     background: var(--ground);
   }
-  .intro { padding: 96px var(--margin); }
-  .statement { text-align: left; }
   .thumb { width: 1.1em; height: .8em; }
   .frame { width: 72vw; }
   .segment { min-width: 22%; padding: 8px; }
