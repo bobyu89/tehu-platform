@@ -4,9 +4,10 @@ import type {
   SignedDoc, EduUnit, EduPush, Wound, WoundAssessment,
   Customer, ServiceRequest, Review, Complaint, NurseProfile,
 } from "./types";
+import type { OutboxItem } from "./sync/mappers";
 
 // 離線優先（02 冊 UX 原則）：本地 IndexedDB 為寫入第一站。
-// 接上 Supabase 後，此層即成為同步佇列（queue → server 權威判定）。
+// 床邊紀錄寫入時同一交易排入 outbox（modules/sync），上線後依序送往伺服器、由伺服器權威判定。
 class TehuDB extends Dexie {
   cases!: EntityTable<CaseInfo, "id">;
   shifts!: EntityTable<Shift, "id">;
@@ -28,6 +29,7 @@ class TehuDB extends Dexie {
   reviews!: EntityTable<Review, "id">;
   complaints!: EntityTable<Complaint, "id">;
   nurseProfiles!: EntityTable<NurseProfile, "nurseId">;
+  outbox!: EntityTable<OutboxItem, "seq">;
   meta!: EntityTable<{ id: string; value: string }, "id">;
 
   constructor() {
@@ -66,6 +68,10 @@ class TehuDB extends Dexie {
       reviews: "id, caseId, nurseId, at",
       complaints: "id, status, at",
       nurseProfiles: "nurseId",
+    });
+    // 同步佇列（10 技術文件待辦 7）：床邊紀錄寫入本機時一併排入，上線後批次送出
+    this.version(8).stores({
+      outbox: "++seq, status, [entity+key]",
     });
   }
 }

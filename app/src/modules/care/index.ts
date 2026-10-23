@@ -6,10 +6,12 @@ import {
   URINE_RULE, evaluateObs, evaluateUrine, computeBaseline, baselineFlag, type BaselineFlag,
 } from "@/lib/alert-engine";
 import { computeNews2, news2Alert, type News2Result } from "@/lib/news2";
+import { enqueue } from "@/modules/sync";
 
 /**
  * care 模組：床邊照護紀錄（量測、輸出入量、照護事件、給藥、傷口）。
  * 量測寫入時一併跑 A/B/C 三層判定並寫入警報；判定本身是 lib 的純函式。
+ * 紀錄寫入本機時同一交易排入同步佇列（sync）；警報不排入，由伺服器重新判定。
  */
 
 export interface VitalsEntry { type: ObsType; value: Observation["value"] }
@@ -73,9 +75,10 @@ export async function recordVitals(info: CaseInfo, entries: VitalsEntry[]): Prom
   const b = news2Alert(news2, info.news2AlertsOff);
   if (b) alertRows.push({ id: uid(), caseId, layer: "B", level: b.level, summary: b.summary, status: "triggered", triggeredAt: now });
 
-  await db.transaction("rw", [db.observations, db.alerts], async () => {
+  await db.transaction("rw", [db.observations, db.alerts, db.outbox], async () => {
     await db.observations.bulkPut(obsRows);
     if (alertRows.length > 0) await db.alerts.bulkPut(alertRows);
+    for (const o of obsRows) await enqueue({ entity: "observation", data: o });
   });
 
   return { obsRows, alertRows, hints, news2 };
@@ -86,8 +89,13 @@ export async function recordIo(
   caseId: string, type: ObsType, category: "io_in" | "io_out", value: Observation["value"],
 ): Promise<void> {
   const now = new Date().toISOString();
-  await getDb().observations.put({
+  const db = getDb();
+  const o: Observation = {
     id: uid(), caseId, type, category, value, measuredAt: now, recordedAt: now, source: "manual",
+  };
+  await db.transaction("rw", [db.observations, db.outbox], async () => {
+    await db.observations.put(o);
+    await enqueue({ entity: "observation", data: o });
   });
   if (type === "output_urine") await checkUrineOutput(caseId);
 }
@@ -136,16 +144,26 @@ export async function scanUrineOutput(nowMs = Date.now()): Promise<AlertRow[]> {
 export async function logEvent(
   caseId: string, type: CareEvent["type"], label: string, detail?: Record<string, unknown>,
 ): Promise<void> {
-  await getDb().events.put({ id: uid(), caseId, type, label, detail, occurredAt: new Date().toISOString() });
+  const db = getDb();
+  const e: CareEvent = { id: uid(), caseId, type, label, detail, occurredAt: new Date().toISOString() };
+  await db.transaction("rw", [db.events, db.outbox], async () => {
+    await db.events.put(e);
+    await enqueue({ entity: "care_event", data: e });
+  });
 }
 
-/** 給藥紀錄（簡化 MAR）：ID 由 藥單|日期|時段 決定，同一格重複記錄即覆寫，天然冪等 */
+/** 給藥紀錄（簡化 MAR）：ID 由 藥單|日期|時段 決定，同一格重複記錄即覆寫，天然冪等；佇列中未送出的也合併 */
 export async function logMed(
   caseId: string, medId: string, date: string, slot: number, status: MedLog["status"], reason?: string,
 ): Promise<void> {
-  await getDb().medLogs.put({
+  const db = getDb();
+  const m: MedLog = {
     id: `${medId}|${date}|${slot}`, caseId, medId, date, slot, status, reason,
     at: new Date().toISOString(),
+  };
+  await db.transaction("rw", [db.medLogs, db.outbox], async () => {
+    await db.medLogs.put(m);
+    await enqueue({ entity: "med_administration", data: m });
   });
 }
 
@@ -155,11 +173,20 @@ export async function addWound(caseId: string, site: { code: string; label: stri
     id: uid(), caseId, site: site.code, siteLabel: site.label,
     identifiedOn: new Date().toISOString(),
   };
-  await getDb().wounds.put(w);
+  const db = getDb();
+  await db.transaction("rw", [db.wounds, db.outbox], async () => {
+    await db.wounds.put(w);
+    await enqueue({ entity: "wound", data: w });
+  });
   return w;
 }
 
 /** 傷口評估：每次新增一筆（append-only），保留完整軌跡 */
 export async function assessWound(input: Omit<WoundAssessment, "id" | "at">): Promise<void> {
-  await getDb().woundAssessments.put({ ...input, id: uid(), at: new Date().toISOString() });
+  const db = getDb();
+  const a: WoundAssessment = { ...input, id: uid(), at: new Date().toISOString() };
+  await db.transaction("rw", [db.woundAssessments, db.outbox], async () => {
+    await db.woundAssessments.put(a);
+    await enqueue({ entity: "wound_assessment", data: a });
+  });
 }

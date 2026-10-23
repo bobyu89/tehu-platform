@@ -222,15 +222,3 @@ body {
 @keyframes enter { from { opacity: 0; transform: translateY(6px); } }
 
 .divider { height: 1px; background: var(--hairline); }
-
-/* ---- Landing 動畫（電影感 fade-rise 三段時差）---- */
-@keyframes fade-rise {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: none; }
-}
-.animate-fade-rise { animation: fade-rise .8s ease-out both; }
-.animate-fade-rise-delay { animation: fade-rise .8s ease-out .2s both; }
-.animate-fade-rise-delay-2 { animation: fade-rise .8s ease-out .4s both; }
-@media (prefers-reduced-motion: reduce) {
-  .animate-fade-rise, .animate-fade-rise-delay, .animate-fade-rise-delay-2 { animation: none; }
-}

@@ -60,6 +60,7 @@
 | `sos` | 緊急求助事件 | `trigger` `resolveLatest` |
 | `edu` | 衛教推送紀錄與送出把關 | `recordPush` `canSend` |
 | `documents` | 電子簽章雜湊存證 | `sign` |
+| `sync` | 離線同步佇列：床邊紀錄寫入時同交易排入，依序送出、退避重試 | `enqueue` `flush` `startAutoSync` `postgrestTransport` |
 
 判定引擎（`lib/alert-engine.ts`、`lib/news2.ts`）為純函式，不碰資料庫，維持現狀。
 
